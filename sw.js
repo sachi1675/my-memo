@@ -1,4 +1,4 @@
-const CACHE_NAME = 'memo-app-v2'; // ← アップデート時はここをv3, v4と増やしていきます
+const CACHE_NAME = 'memo-app-v3'; // ← アップデート時はここをv3, v4と増やしていきます
 
 // キャッシュするファイルリスト
 const ASSETS = [
