@@ -314,7 +314,7 @@
     let editingMemoId = null;
     let lastBackPressTime = 0;
 
-    // ========================================================
+     // ========================================================
     // サーバー同期と初期描画
     // ========================================================
     async function loadFromServer() {
@@ -332,7 +332,7 @@
             return;
         }
 
-                try {
+        try {
             const response = await fetch(GAS_URL);
             const serverMemos = await response.json();
             // サーバーのデータが空でなければ、かつ手元のデータより新しそうなら更新する
@@ -344,8 +344,9 @@
         } catch(e) {
             console.log("サーバーからの読み込みに失敗しました");
         }
+    } // ★ここが重要！これで関数が正しく終了します
 
-    
+    // 最後に実行する
     loadFromServer(); 
 
     function toggleMenu() {
