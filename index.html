@@ -332,10 +332,11 @@
             return;
         }
 
-        try {
+                try {
             const response = await fetch(GAS_URL);
             const serverMemos = await response.json();
-            if (Array.isArray(serverMemos)) {
+            // サーバーのデータが空でなければ、かつ手元のデータより新しそうなら更新する
+            if (Array.isArray(serverMemos) && serverMemos.length > 0) {
                 memos = serverMemos;
                 localStorage.setItem('my_memos_v4', JSON.stringify(memos));
                 renderMemos(); 
@@ -343,7 +344,7 @@
         } catch(e) {
             console.log("サーバーからの読み込みに失敗しました");
         }
-    }
+
     
     loadFromServer(); 
 
