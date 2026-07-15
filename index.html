@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <link rel="manifest" href="manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>マイ・シンプルメモ v9★</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f5;
+            --text-color: #333;
+            --sidebar-bg: #3a4d5c;
+            --sidebar-text: #fff;
+            --accent-color: #4a90e2;
+            --danger-color: #e04b4b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* サイドバー */
+        .sidebar { position: fixed; top: 0; left: -260px; width: 260px; height: 100%; background: var(--sidebar-bg); color: var(--sidebar-text); transition: 0.3s; z-index: 1000; padding: 20px; overflow-y: auto; }
+        .sidebar.open { left: 0; }
+        .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; z-index: 999; }
+        .sidebar-overlay.show { display: block; }
+        .sidebar-action { padding: 10px; margin-bottom: 15px; background: rgba(255,255,255,0.15); text-align: center; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        
+        .sidebar h3 { font-size: 14px; color: #8ba3b5; margin: 15px 0 5px 0; border-bottom: 1px solid #506778; padding-bottom: 5px; }
+        .folder-item { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; border-radius: 4px; font-size: 15px; margin-bottom: 2px; }
+        .folder-item:hover, .folder-item.active { background: rgba(255,255,255,0.1); }
+        .folder-sub { padding-left: 15px; }
+
+        /* メイン画面 */
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
+        header { background: #fff; padding: 10px 15px; display: flex; align-items: center; border-bottom: 1px solid #ddd; gap: 10px; }
+        .menu-btn { font-size: 24px; cursor: pointer; background: none; border: none; padding: 5px; color: var(--text-color); }
+        .search-bar { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 20px; font-size: 14px; outline: none; }
+        
+        /* ③ 一括操作エリアのボタンスタイル調整 */
+        .bulk-action-area { display: flex; gap: 5px; flex-shrink: 0; }
+        .bulk-btn { color: #aaa; background: none; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 12px; cursor: not-allowed; font-weight: bold; transition: 0.2s; }
+        .bulk-btn.active { color: #fff; cursor: pointer; }
+        #bulkDeleteBtn.active { background: var(--danger-color); border-color: var(--danger-color); }
+        #bulkMoveBtn.active { background: var(--accent-color); border-color: var(--accent-color); }
+
+        /* メモ一覧 */
+        .memo-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .memo-item { background: #fff; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; display: flex; align-items: center; gap: 12px; }
+        .memo-checkbox { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+        .memo-info { flex: 1; min-width: 0; }
+        .memo-title { font-weight: bold; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .memo-meta { font-size: 12px; color: #777; display: flex; justify-content: space-between; margin-top: 5px; }
+
+        /* モーダル */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: none; flex-direction: column; z-index: 2000; }
+        .modal.open { display: flex; }
+        .modal-header { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; flex-shrink: 0; gap: 10px; }
+        .btn { background: none; border: none; font-size: 16px; color: var(--accent-color); cursor: pointer; padding: 5px; }
+        .btn-danger { color: var(--danger-color); font-size: 16px; }
+
+        /* エディタ */
+        .editor-folder-select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; width: 100%; font-size: 14px; margin-top: 5px; }
+        /* ⑥ 文字数カウントと更新日を右寄せに変更 */
+        .editor-counter-header { background: #f9f9f9; padding: 6px 15px; font-size: 12px; color: #666; border-bottom: 1px solid #eee; display: flex; justify-content: flex-end; gap: 15px; flex-shrink: 0; }
+        
+        /* ⑨ 画面サイズを安定させるための幅制限と、長い英数字でも折り返す設定 */
+        .editor-title { width: 100%; padding: 15px 15px 5px 15px; border: none; font-size: 18px; font-weight: bold; outline: none; border-bottom: 1px solid #eee; flex-shrink: 0; word-wrap: break-word; overflow-wrap: break-word; }
+        .editor-body { flex: 1; width: 100%; padding: 15px; border: none; resize: none; font-size: 16px; outline: none; line-height: 1.5; word-wrap: break-word; overflow-wrap: break-word; }
+        
+        /* ⑨ プレビュー画面も勝手な拡大縮小やスクロールバグを防ぐ */
+        #previewArea { word-wrap: break-word; overflow-wrap: break-word; -webkit-user-select: text; user-select: text; }
+
+        /* フォルダ管理 */
+        .manage-body { padding: 20px; flex: 1; overflow-y: auto; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .tab { padding: 5px 10px; cursor: pointer; color: #777; }
+        .tab.active { color: var(--accent-color); font-weight: bold; border-bottom: 2px solid var(--accent-color); }
+        .manage-section { display: none; }
+        .manage-section.active { display: block; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .input-group input, .input-group select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .input-group input { flex: 1; }
+        .manage-list-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; align-items: center; }
+        .btn-group { display: flex; gap: 5px; align-items: center; }
+        .del-btn { color: var(--danger-color); background: none; border: none; cursor: pointer; padding: 5px; }
+        .move-btn { background: none; border: none; cursor: pointer; padding: 5px; color: #555; }
+
+        /* プラスボタン */
+        .fab { position: fixed; bottom: 20px; right: 20px; width: 56px; height: 56px; background: var(--sidebar-bg); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); cursor: pointer; border: none; z-index: 998; }
+
+        /* 情報ダイアログ専用スタイル */
+        .info-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 3000; }
+        .info-modal-overlay.open { display: flex; }
+        .info-dialog { background: #fff; width: 85%; max-width: 340px; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .info-dialog-header { background: #3a4d5c; color: #fff; padding: 14px 18px; font-size: 18px; font-weight: bold; }
+        .info-dialog-body { padding: 18px; display: flex; flex-direction: column; gap: 15px; }
+        .info-label { font-size: 14px; color: #333; font-weight: bold; }
+        .info-value-box { border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; font-size: 14px; color: #111; margin-top: 5px; background: #fff; }
+        .info-dialog-footer { display: flex; justify-content: flex-end; padding: 10px 15px; background: #f5f5f5; border-top: 1px solid #eee; }
+        .info-dialog-btn { background: #3a4d5c; color: #fff; border: none; padding: 8px 24px; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: bold; }
+
+        /* ⑩ 自作ポップアップダイアログ（保存・破棄・続ける）のスタイル */
+        .custom-confirm-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 4000; }
+        .custom-confirm-overlay.open { display: flex; }
+        .custom-confirm-dialog { background: #fff; width: 85%; max-width: 320px; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .custom-confirm-body { padding: 20px; font-size: 16px; text-align: center; line-height: 1.5; color: #333; border-bottom: 1px solid #eee; }
+        .custom-confirm-footer { display: flex; flex-direction: column; }
+        .custom-confirm-btn { background: none; border: none; padding: 15px; font-size: 15px; cursor: pointer; font-weight: bold; text-align: center; border-bottom: 1px solid #eee; }
+        .custom-confirm-btn:last-child { border-bottom: none; }
+        .btn-confirm-save { color: var(--accent-color); }
+        .btn-confirm-discard { color: var(--danger-color); }
+        .btn-confirm-cancel { color: #777; background: #f9f9f9; }
+
+        /* ⑬ 下部にふわっと出る警告表示（トースト） */
+        .toast-msg { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 14px; z-index: 5000; display: none; }
+    </style>
+
+</head>
+<body>
+
+    <div class="sidebar-overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-action" onclick="openFolderManager()">フォルダ編集</div>
+        <div class="folder-item active" id="folder-all" onclick="selectFolder('all')">すべてのメモ（未分類）</div>
+        <div id="sidebarContent"></div>
+    </div>
+
+    <div class="main-content" id="mainContent">
+        <header>
+            <button class="menu-btn" onclick="toggleMenu()">≡</button>
+            <input type="text" class="search-bar" id="search" placeholder="メモを検索..." oninput="onSearchInput()">
+            <div class="bulk-action-area">
+                <button class="bulk-btn" id="bulkDeleteBtn" onclick="deleteSelectedMemos()">削除</button>
+                <button class="bulk-btn" id="bulkMoveBtn" onclick="moveSelectedMemos()">移動</button>
+            </div>
+        </header>
+        <div class="memo-list" id="memoList"></div>
+        <button class="fab" onclick="openEditor()">+</button>
+    </div>
+
+    <div class="modal" id="editorModal">
+        <div class="modal-header">
+            <button class="btn" id="editorBackBtn" onclick="closeEditor()">戻る</button>
+            <div id="viewModeHeader" style="font-weight:bold;">メモ詳細</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn" id="headerSaveBtn" onclick="saveMemo()" style="display:none; font-weight:bold;">保存</button>
+                <button class="btn" id="optionsMenuBtn" onclick="toggleOptionsMenu(event)">︙</button>
+            </div>
+        </div>
+
+        <div id="optionsMenu" style="display:none; position:absolute; top:50px; right:10px; background:white; border:1px solid #ccc; z-index:100; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.2); width: 200px;">
+            <div id="menuOptEdit" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="switchToEditMode()">編集</div>
+            <div id="menuOptDelete" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="deleteMemo()">削除</div>
+            <div id="menuOptInfo" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="showMemoInfo()">詳細情報</div>
+            
+            <div id="menuOptFolderArea" style="padding:10px; border-bottom:1px solid #eee; background:#f9f9f9; display:none;">
+                <span style="font-size: 12px; color: #666; font-weight:bold;">フォルダ変更:</span>
+                <select class="editor-folder-select" id="editorFolder" onchange="onFolderChange()"></select>
+            </div>
+            
+            <div id="menuOptReplaceArea" style="padding:10px; display:none; flex-direction:column; gap:5px; background:#f9f9f9;">
+                <input type="text" id="findText" placeholder="検索" style="width:100%; padding:4px; font-size:12px;">
+                <input type="text" id="replaceText" placeholder="置換" style="width:100%; padding:4px; font-size:12px;">
+                <button class="btn" onclick="replaceText()" style="font-size:12px; padding:2px;">置換を実行</button>
+            </div>
+        </div>
+
+        <div id="previewSearchArea" style="display:none; padding:8px 15px; background:#f9f9f9; border-bottom:1px solid #eee; align-items:center; gap:10px;">
+            <input type="text" id="previewSearchInput" placeholder="このメモ内を検索..." style="flex:1; padding:6px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px;" oninput="highlightPreviewText()">
+            <button class="btn" onclick="clearPreviewSearch()" style="font-size:14px; padding:0;">クリア</button>
+        </div>
+
+        <div id="previewDragHandle" class="drag-handle-container" style="display:none;">
+            <div class="drag-handle"></div>
+        </div>
+
+        <div id="previewArea" style="display:none; padding:20px; font-size:16px; line-height:1.6; overflow-y:auto; flex:1;"></div>
+
+        <div id="editArea" style="display:flex; flex-direction:column; flex:1;">
+            <div class="editor-counter-header" id="editorCounterHeader">文字数: 0 | 更新日: 今日</div>
+            <input type="text" class="editor-title" id="editorTitle" placeholder="タイトルを入力..." oninput="onEditorInput()">
+            <textarea class="editor-body" id="editorBody" placeholder="ここにメモを入力..." oninput="onEditorInput()"></textarea>
+        </div>
+    </div>
+
+    <div class="modal" id="folderModal">
+        <div class="modal-header">
+            <h2>構成の編集</h2>
+            <button class="btn" onclick="closeFolderManager()">閉じる</button>
+        </div>
+        <div class="manage-body">
+            <div class="tabs">
+                <div class="tab active" id="tab-f" onclick="switchTab('f')">フォルダ設定・並び替え</div>
+                <div class="tab" id="tab-h" onclick="switchTab('h')">見出し並び替え</div>
+            </div>
+
+            <div class="manage-section active" id="sec-f">
+                <div class="input-group">
+                    <input type="text" id="newFolderName" placeholder="新しいフォルダ名...">
+                    <select id="folderHeaderSelect"></select>
+                    <button class="btn" onclick="addFolder()">追加</button>
+                </div>
+                <div id="manageFolderList"></div>
+            </div>
+
+            <div class="manage-section" id="sec-h">
+                <div class="input-group">
+                    <input type="text" id="newHeaderName" placeholder="新しい見出し名...">
+                    <button class="btn" onclick="addHeader()">追加</button>
+                </div>
+                <div id="manageHeaderList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-modal-overlay" id="infoModalOverlay" onclick="closeMemoInfo()">
+        <div class="info-dialog" onclick="event.stopPropagation()">
+            <div class="info-dialog-header">情報</div>
+            <div class="info-dialog-body">
+                <div>
+                    <div class="info-label">作成時刻</div>
+                    <div class="info-value-box" id="infoCreatedAt">-</div>
+                </div>
+                <div>
+                    <div class="info-label">変更時刻</div>
+                    <div class="info-value-box" id="infoUpdatedAt">-</div>
+                </div>
+                <div>
+                    <div class="info-label">最後に読んだ時刻</div>
+                    <div class="info-value-box" id="infoLastRead">-</div>
+                </div>
+            </div>
+            <div class="info-dialog-footer">
+                <button class="info-dialog-btn" onclick="closeMemoInfo()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="custom-confirm-overlay" id="customConfirmOverlay">
+        <div class="custom-confirm-dialog">
+            <div class="custom-confirm-body">編集中のメモがあります。<br>保存しますか？</div>
+            <div class="custom-confirm-footer">
+                <button class="custom-confirm-btn btn-confirm-save" onclick="handleCustomConfirm('save')">保存して戻る</button>
+                <button class="custom-confirm-btn btn-confirm-discard" onclick="handleCustomConfirm('discard')">変更を破棄して戻る</button>
+                <button class="custom-confirm-btn btn-confirm-cancel" onclick="handleCustomConfirm('cancel')">編集を続ける</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast-msg">もう一度戻るを押すと終了します</div>
+
+<style>
+/* プレビュー内の検索エリアをスライド式にするための調整 */
+#previewSearchArea {
+    display: flex;
+    transition: max-height 0.3s ease-out, opacity 0.2s ease-out, padding 0.3s ease-out;
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    overflow: hidden;
+    border-bottom: 1px solid #eee;
+}
+
+/* 検索バーが開いている状態のクラス */
+#previewSearchArea.search-open {
+    max-height: 60px;
+    opacity: 1;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+}
+
+/* ドラッグハンドル（引き出しのつまみ）のデザイン */
+.drag-handle-container {
+    width: 100%;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+    touch-action: none;
+}
+
+.drag-handle {
+    width: 40px;
+    height: 4px;
+    background-color: #ccc;
+    border-radius: 2px;
+    transition: background-color 0.2s;
+}
+
+.drag-handle-container:active .drag-handle {
+    background-color: #888;
+}
+</style>
+
+<script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwvHW4IQHVDy1gXYYeQlmM9MEnAiXJDCpLY2nnmaqjnBvLA4hEVBPUcUvXMfSJwCF0/exec";
+    
+    // ========================================================
+    // すべてのローカルデータを最初に完全読み込みする
+    // ========================================================
+    let memos = JSON.parse(localStorage.getItem('my_memos_v4')) || []; 
+    let headers = JSON.parse(localStorage.getItem('my_headers_v4')) || ['生活便利メモ', '一般ノート'];
+    let folders = JSON.parse(localStorage.getItem('my_folders_v4')) || [
+        { name: '口座番号管理', header: '生活便利メモ' },
+        { name: '買い物リスト', header: '生活便利メモ' },
+        { name: '誕生日リスト', header: '生活便利メモ' },
+        { name: 'テキストノート', header: '一般ノート' }
+    ];
+    let currentFolder = 'all';
+    let editingMemoId = null;
+    let lastBackPressTime = 0;
+
+    // ========================================================
+    // サーバー同期と初期描画
+    // ========================================================
+    async function loadFromServer() {
+        if (history.state?.type !== 'home_active') {
+            history.replaceState({ type: 'home_base' }, null, '');
+            history.pushState({ type: 'home_active' }, null, '');
+        }
+
+        renderStructure();
+        renderMemos(); 
+        checkDraftOnStartup();
+
+        if (!navigator.onLine) {
+            console.log("オフラインのためサーバー同期をスキップします");
+            return;
+        }
+
+        try {
+            const response = await fetch(GAS_URL);
+            const serverMemos = await response.json();
+            if (Array.isArray(serverMemos)) {
+                memos = serverMemos;
+                localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+                renderMemos(); 
+            }
+        } catch(e) {
+            console.log("サーバーからの読み込みに失敗しました");
+        }
+    }
+    
+    loadFromServer(); 
+
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('show');
+    }
+
+    document.addEventListener('click', function(e) {
+        const sidebar = document.getElementById('sidebar');
+        const menuBtn = document.querySelector('.menu-btn');
+        const optionsMenu = document.getElementById('optionsMenu');
+        const optionsMenuBtn = document.getElementById('optionsMenuBtn');
+
+        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== menuBtn) {
+            toggleMenu();
+        }
+        if (optionsMenu.style.display === 'block' && !optionsMenu.contains(e.target) && e.target !== optionsMenuBtn) {
+            optionsMenu.style.display = 'none';
+        }
+    });
+
+    // ⑭ プレビュー画面のダブルタップ動作
+    document.getElementById('previewArea').addEventListener('dblclick', function() {
+        switchToEditMode();
+    });
+
+    function selectFolder(folder) {
+        currentFolder = folder;
+        document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('active'));
+        if(folder === 'all') {
+            document.getElementById('folder-all').classList.add('active');
+        } else {
+            const activeEl = document.getElementById('folder-' + folder);
+            if(activeEl) activeEl.classList.add('active');
+        }
+        renderMemos();
+        toggleMenu();
+    }
+
+    function switchTab(type) {
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.manage-section').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + type).classList.add('active');
+        document.getElementById('sec-' + type).classList.add('active');
+        renderStructure();
+    }
+
+    function renderStructure() {
+        const sidebar = document.getElementById('sidebarContent');
+        const editorSelect = document.getElementById('editorFolder');
+        const folderHeadSelect = document.getElementById('folderHeaderSelect');
+        const manageFolderList = document.getElementById('manageFolderList');
+        const manageHeaderList = document.getElementById('manageHeaderList');
+
+        sidebar.innerHTML = '';
+        editorSelect.innerHTML = '';
+        folderHeadSelect.innerHTML = '';
+        manageFolderList.innerHTML = '';
+        manageHeaderList.innerHTML = '';
+
+        const optNone = document.createElement('option');
+        optNone.value = '';
+        optNone.innerText = '未分類（指定なし）';
+        editorSelect.appendChild(optNone);
+
+        headers.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h; opt.innerText = h;
+            folderHeadSelect.appendChild(opt);
+        });
+
+        headers.forEach((h, hIdx) => {
+            const hEl = document.createElement('h3');
+            hEl.innerText = h;
+            sidebar.appendChild(hEl);
+
+            const mhItem = document.createElement('div');
+            mhItem.className = 'manage-list-item';
+            mhItem.innerHTML = '<span>' + h + '</span><div class="btn-group"><button class="move-btn" onclick="moveHeader(' + hIdx + ', -1)">▲</button><button class="move-btn" onclick="moveHeader(' + hIdx + ', 1)">▼</button><button class="del-btn" onclick="deleteHeader(\'' + h + '\')">削除</button></div>';
+            manageHeaderList.appendChild(mhItem);
+
+            const subFolders = folders.filter(f => f.header === h);
+            subFolders.forEach((f, fIdx) => {
+                const realIdx = folders.findIndex(fold => fold.name === f.name);
+
+                const fEl = document.createElement('div');
+                fEl.className = 'folder-item folder-sub';
+                fEl.id = 'folder-' + f.name;
+                fEl.innerText = '└ ' + f.name;
+                fEl.onclick = () => selectFolder(f.name);
+                sidebar.appendChild(fEl);
+
+                const opt = document.createElement('option');
+                opt.value = f.name; opt.innerText = f.name;
+                editorSelect.appendChild(opt);
+
+                const mfItem = document.createElement('div');
+                mfItem.className = 'manage-list-item';
+                
+                let hOptions = headers.map(head => '<option value="' + head + '" ' + (head===h?'selected':'') + '>' + head + '</option>').join('');
+                
+                mfItem.innerHTML = '<div><strong>' + f.name + '</strong><select onchange="changeFolderHeader(\'' + f.name + '\', this.value)" style="font-size:12px; margin-left:10px;">' + hOptions + '</select></div><div class="btn-group"><button class="move-btn" onclick="moveFolder(' + realIdx + ', -1, \'' + h + '\')">▲</button><button class="move-btn" onclick="moveFolder(' + realIdx + ', 1, \'' + h + '\')">▼</button><button class="del-btn" onclick="deleteFolder(\'' + f.name + '\')">削除</button></div>';
+                manageFolderList.appendChild(mfItem);
+            });
+        });
+    }
+
+    function moveHeader(index, direction) {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= headers.length) return;
+        const temp = headers[index];
+        headers[index] = headers[targetIndex];
+        headers[targetIndex] = temp;
+        localStorage.setItem('my_headers_v4', JSON.stringify(headers));
+        renderStructure();
+    }
+
+    function moveFolder(realIndex, direction, currentHeaderName) {
+        let targetIndex = realIndex + direction;
+        if (targetIndex < 0 || targetIndex >= folders.length) return;
+        
+        while (targetIndex >= 0 && targetIndex < folders.length) {
+            if (folders[targetIndex].header === currentHeaderName) {
+                const temp = folders[realIndex];
+                folders[realIndex] = folders[targetIndex];
+                folders[targetIndex] = temp;
+                localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+                break;
+            }
+            targetIndex += direction;
+        }
+        renderStructure();
+    }
+
+    function addHeader() {
+        const input = document.getElementById('newHeaderName');
+        const name = input.value.trim();
+        if(!name || headers.includes(name)) return;
+        headers.push(name);
+        localStorage.setItem('my_headers_v4', JSON.stringify(headers));
+        input.value = '';
+        renderStructure();
+    }
+
+    function deleteHeader(name) {
+        if(confirm('見出し「' + name + '」を削除しますか？\n※中にあるフォルダは他へ移動させるか、削除してください。')) {
+            headers = headers.filter(h => h !== name);
+            localStorage.setItem('my_headers_v4', JSON.stringify(headers));
+            folders.forEach(f => {
+                if(f.header === name) f.header = headers[0] || '';
+            });
+            localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+            renderStructure();
+        }
+    }
+
+    function addFolder() {
+        const input = document.getElementById('newFolderName');
+        const hSelect = document.getElementById('folderHeaderSelect');
+        const name = input.value.trim();
+        if(!name || !hSelect.value) return;
+        if(folders.some(f => f.name === name)) { alert('同名のフォルダがあります'); return; }
+        
+        folders.push({ name: name, header: hSelect.value });
+        localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+        input.value = '';
+        renderStructure();
+    }
+
+    function changeFolderHeader(fName, newHeader) {
+        const folder = folders.find(f => f.name === fName);
+        if(folder) {
+            folder.header = newHeader;
+            localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+            renderStructure();
+        }
+    }
+
+    function deleteFolder(name) {
+        if(confirm('フォルダ「' + name + '」を削除しますか？')) {
+            folders = folders.filter(f => f.name !== name);
+            localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+            memos.forEach(m => {
+                if(m.folder === name) m.folder = '';
+            });
+            localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+            if(currentFolder === name) currentFolder = 'all';
+            renderStructure();
+        }
+    }
+
+    // ⑦ 検索入力時の履歴管理用の変数
+    let isSearchActiveState = false;
+
+    function onSearchInput() {
+        const query = document.getElementById('search').value.trim();
+        
+        // 文字が入力されていて、かつ「検索中」の履歴ステートがまだ積まれていない場合
+        if (query !== '' && !isSearchActiveState) {
+            isSearchActiveState = true;
+            // 戻るボタンが押されたときにポップできるように、履歴を1つ積む
+            history.pushState({ type: 'search_active' }, null, '');
+        } 
+        // ユーザーが手動で文字を全部消した場合、積んだ履歴を1つ戻す
+        else if (query === '' && isSearchActiveState) {
+            isSearchActiveState = false;
+            if (history.state?.type === 'search_active') {
+                history.back();
+            }
+        }
+        
+        renderMemos();
+    }
+
+    function renderMemos() {
+        const list = document.getElementById('memoList');
+        const searchQuery = document.getElementById('search').value.toLowerCase();
+        list.innerHTML = '';
+
+        let filtered = [...memos]; 
+        if (currentFolder !== 'all') {
+            filtered = filtered.filter(m => m.folder === currentFolder);
+        }
+        if (searchQuery) {
+            filtered = filtered.filter(m => 
+                (m.title && m.title.toLowerCase().includes(searchQuery)) || 
+                (m.content && m.content.toLowerCase().includes(searchQuery))
+            );
+        }
+
+        filtered.sort((a,b) => b.id - a.id);
+        updateBulkButtonsStatus();
+
+        if(filtered.length === 0) {
+            list.innerHTML = '<div style="color:#777; text-align:center; margin-top:20px;">メモがありません</div>';
+            return;
+        }
+
+        filtered.forEach(memo => {
+            const item = document.createElement('div');
+            item.className = 'memo-item';
+            item.onclick = (e) => {
+                if(e.target.classList.contains('memo-checkbox')) return;
+                openEditor(memo.id);
+            };
+            
+            const highlight = (text) => {
+                if (!searchQuery) return text;
+                const regex = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+                return text.replace(regex, '<mark style="background: #fff200;">$1</mark>');
+            };
+
+            let displayTitle = memo.title && memo.title.trim() ? memo.title : (memo.content.split('\n')[0] || '無題のメモ');
+            const displayDate = memo.updatedAt ? memo.updatedAt.split(' ')[0] : '日付不明';
+
+            item.innerHTML = `
+                <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
+                <div class="memo-info">
+                    <div class="memo-title">${highlight(displayTitle)}</div>
+                    <div class="memo-meta">
+                        <span>${memo.folder || '未分類'}</span>
+                        <span>${displayDate}</span>
+                    </div>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    /* --- 一括操作系機能 --- */
+    function updateBulkButtonsStatus() {
+        const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
+        const hasChecked = checkboxes.length > 0;
+        
+        const delBtn = document.getElementById('bulkDeleteBtn');
+        const moveBtn = document.getElementById('bulkMoveBtn');
+        
+        if (hasChecked) {
+            delBtn.classList.add('active');
+            moveBtn.classList.add('active');
+        } else {
+            delBtn.classList.remove('active');
+            moveBtn.classList.remove('active');
+        }
+    }
+
+    async function deleteSelectedMemos() {
+        const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
+        if (checkboxes.length === 0) return;
+        
+        if (confirm(`${checkboxes.length}件のメモを削除しますか？`)) {
+            const idsToDelete = Array.from(checkboxes).map(cb => Number(cb.dataset.id));
+            
+            memos = memos.filter(m => !idsToDelete.includes(m.id));
+            localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+            renderMemos();
+
+            if (navigator.onLine) {
+                try {
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'bulkDelete', ids: idsToDelete })
+                    });
+                } catch(e) { console.log("サーバー削除同期失敗"); }
+            }
+        }
+    }
+
+    async function moveSelectedMemos() {
+        const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
+        if (checkboxes.length === 0) return;
+
+        const folderNames = folders.map(f => f.name);
+        if (folderNames.length === 0) {
+            alert('移動先のフォルダが登録されていません。');
+            return;
+        }
+
+        const targetFolder = prompt(`移動先フォルダ名を入力してください:\n【選択肢】: ${folderNames.join(', ')}`);
+        if (!targetFolder) return;
+        if (!folderNames.includes(targetFolder) && targetFolder !== '未分類') {
+            alert('指定されたフォルダが存在しません。');
+            return;
+        }
+
+        const idsToMove = Array.from(checkboxes).map(cb => Number(cb.dataset.id));
+        const folderValue = targetFolder === '未分類' ? '' : targetFolder;
+
+        memos.forEach(m => {
+            if (idsToMove.includes(m.id)) {
+                m.folder = folderValue;
+            }
+        });
+        localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+        renderMemos();
+
+        if (navigator.onLine) {
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'bulkMove', ids: idsToMove, folder: folderValue })
+                });
+            } catch(e) { console.log("サーバー移動同期失敗"); }
+        }
+    }
+
+    /* --- エディタ・詳細画面制御 --- */
+    let isChanged = false;
+    let originalMemoData = null;
+
+    function openEditor(id = null) {
+        editingMemoId = id;
+        isChanged = false;
+        renderStructure(); 
+
+        const modal = document.getElementById('editorModal');
+        const titleInput = document.getElementById('editorTitle');
+        const bodyInput = document.getElementById('editorBody');
+        const folderSelect = document.getElementById('editorFolder');
+        
+        document.getElementById('optionsMenu').style.display = 'none';
+
+        if (id) {
+            const memo = memos.find(m => m.id === id);
+            originalMemoData = { ...memo };
+            
+            titleInput.value = memo.title || '';
+            bodyInput.value = memo.content || '';
+            folderSelect.value = memo.folder || '';
+            
+            memo.lastRead = new Date().toLocaleString('ja-JP');
+            
+            const mainSearchVal = document.getElementById('search').value;
+            if (mainSearchVal) {
+                document.getElementById('previewSearchInput').value = mainSearchVal;
+                // メインから検索を引き継いでいる場合は最初から開いておく
+                document.getElementById('previewSearchArea').classList.add('search-open');
+            } else {
+                clearPreviewSearch();
+                // 検索ワードがなければ最初は閉じておく
+                document.getElementById('previewSearchArea').classList.remove('search-open');
+            }
+            
+            // プレビューを開いたので履歴を積む
+            modal.classList.add('open');
+            history.pushState({ type: 'editor_active' }, null, '');
+            switchToPreviewMode();
+        } else {
+            originalMemoData = null;
+            titleInput.value = '';
+            bodyInput.value = '';
+            folderSelect.value = currentFolder === 'all' ? '' : currentFolder;
+            
+            modal.classList.add('open');
+            history.pushState({ type: 'editor_active' }, null, '');
+            // 新規作成時は直接編集モード用の履歴も積む
+            history.pushState({ type: 'edit_mode_active' }, null, '');
+            switchToEditMode();
+        }
+
+        updateCharCount();
+    }
+
+    function switchToPreviewMode() {
+        document.getElementById('viewModeHeader').style.display = 'block';
+        document.getElementById('headerSaveBtn').style.display = 'none';
+        
+        // 検索バーとドラッグハンドルを表示
+        document.getElementById('previewSearchArea').style.display = 'flex';
+        document.getElementById('previewDragHandle').style.display = 'flex';
+        
+        document.getElementById('previewArea').style.display = 'block';
+        document.getElementById('editArea').style.display = 'none';
+        
+        document.getElementById('menuOptEdit').style.display = 'block';
+        document.getElementById('menuOptDelete').style.display = 'block';
+        document.getElementById('menuOptInfo').style.display = 'block';
+        
+        let copyBtn = document.getElementById('menuOptCopy');
+        if (!copyBtn) {
+            copyBtn = document.createElement('div');
+            copyBtn.id = 'menuOptCopy';
+            copyBtn.style.cssText = "padding:10px; border-bottom:1px solid #eee; cursor:pointer;";
+            copyBtn.innerText = "コピーを作成（複製）";
+            copyBtn.onclick = duplicateMemo;
+            document.getElementById('menuOptEdit').insertAdjacentElement('afterend', copyBtn);
+        }
+        copyBtn.style.display = 'block';
+
+        document.getElementById('menuOptFolderArea').style.display = 'none';
+        document.getElementById('menuOptReplaceArea').style.display = 'none';
+        
+        highlightPreviewText();
+    }
+
+    function switchToEditMode() {
+        document.getElementById('viewModeHeader').style.display = 'none';
+        document.getElementById('headerSaveBtn').style.display = 'block';
+        
+        // 編集時は検索バーとドラッグハンドルは隠す
+        document.getElementById('previewSearchArea').style.display = 'none';
+        document.getElementById('previewDragHandle').style.display = 'none';
+        
+        document.getElementById('previewArea').style.display = 'none';
+        document.getElementById('editArea').style.display = 'flex';
+        
+        document.getElementById('optionsMenu').style.display = 'none';
+        document.getElementById('menuOptEdit').style.display = 'none';
+        document.getElementById('menuOptDelete').style.display = 'none';
+        document.getElementById('menuOptInfo').style.display = 'none';
+        const copyBtn = document.getElementById('menuOptCopy');
+        if (copyBtn) copyBtn.style.display = 'none';
+        
+        document.getElementById('menuOptFolderArea').style.display = 'block';
+        document.getElementById('menuOptReplaceArea').style.display = 'flex';
+    }
+
+    function onEditorInput() {
+        isChanged = true;
+        updateCharCount();
+    }
+
+    function onFolderChange() {
+        isChanged = true;
+    }
+
+    function updateCharCount() {
+        const bodyText = document.getElementById('editorBody').value;
+        const count = bodyText.length;
+        const dateStr = editingMemoId ? (memos.find(m => m.id === editingMemoId).updatedAt || 'ignore') : 'ignore';
+        document.getElementById('editorCounterHeader').innerText = `文字数: ${count} | 更新日: ${dateStr === 'ignore' ? '今日' : dateStr}`;
+    }
+
+    function toggleOptionsMenu(event) {
+        event.stopPropagation();
+        const menu = document.getElementById('optionsMenu');
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+
+    // エディタを閉じる（閉じるボタン押下時）
+    function closeEditor() {
+        if (isChanged && document.getElementById('editArea').style.display === 'flex') {
+            document.getElementById('customConfirmOverlay').classList.add('open');
+        } else {
+            // 編集モードならプレビューに戻り、プレビューなら完全に閉じる
+            history.back();
+        }
+    }
+
+    function handleCustomConfirm(action) {
+        document.getElementById('customConfirmOverlay').classList.remove('open');
+        if (action === 'save') {
+            saveMemo();
+        } else if (action === 'discard') {
+            isChanged = false;
+            history.back(); 
+        }
+    }
+
+    function exitEditorVisuals() {
+        document.getElementById('editorModal').classList.remove('open');
+        renderMemos();
+    }
+
+    async function saveMemo() {
+        const title = document.getElementById('editorTitle').value.trim();
+        const content = document.getElementById('editorBody').value;
+        const folder = document.getElementById('editorFolder').value;
+        const nowStr = new Date().toLocaleString('ja-JP');
+
+        if (!title && !content) {
+            alert('空のメモは保存できません');
+            return;
+        }
+
+        let targetMemo;
+        if (editingMemoId) {
+            targetMemo = memos.find(m => m.id === editingMemoId);
+            targetMemo.title = title;
+            targetMemo.content = content;
+            targetMemo.folder = folder;
+            targetMemo.updatedAt = nowStr;
+        } else {
+            targetMemo = {
+                id: Date.now(),
+                title: title,
+                content: content,
+                folder: folder,
+                createdAt: nowStr,
+                updatedAt: nowStr,
+                lastRead: nowStr
+            };
+            memos.push(targetMemo);
+            editingMemoId = targetMemo.id;
+        }
+
+        isChanged = false;
+        localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+
+        if (navigator.onLine) {
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'save', memo: targetMemo })
+                });
+            } catch(e) { console.log("サーバー保存同期失敗"); }
+        }
+
+        // 保存したら編集モード用の履歴を1つ破棄して、プレビュー用の履歴ステートに戻す
+        if (history.state?.type === 'edit_mode_active') {
+            history.back();
+        } else {
+            switchToPreviewMode();
+        }
+        showToast("保存しました");
+    }
+
+    async function deleteMemo() {
+        if (!editingMemoId) {
+            isChanged = false;
+            history.back();
+            return;
+        }
+
+        if (confirm('このメモを削除しますか？')) {
+            const idToDelete = editingMemoId;
+            
+            memos = memos.filter(m => m.id !== idToDelete);
+            localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+            isChanged = false;
+            
+            // 履歴を2つ分戻る（編集モードの履歴＋エディタ自体の履歴）
+            if (history.state?.type === 'edit_mode_active') {
+                history.go(-2);
+            } else {
+                history.back();
+            }
+
+            if (navigator.onLine) {
+                try {
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'delete', id: idToDelete })
+                    });
+                } catch(e) { console.log("サーバー削除同期失敗"); }
+            }
+        }
+    }
+
+    async function duplicateMemo() {
+        if (!editingMemoId) return;
+        const original = memos.find(m => m.id === editingMemoId);
+        if (!original) return;
+
+        const nowStr = new Date().toLocaleString('ja-JP');
+        const duplicated = {
+            id: Date.now(),
+            title: original.title ? original.title + " のコピー" : "コピーされたメモ",
+            content: original.content,
+            folder: original.folder,
+            createdAt: nowStr,
+            updatedAt: nowStr,
+            lastRead: nowStr
+        };
+
+        memos.push(duplicated);
+        localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+        document.getElementById('optionsMenu').style.display = 'none';
+        showToast("複製を作成しました");
+
+        editingMemoId = duplicated.id;
+        switchToPreviewMode();
+
+        if (navigator.onLine) {
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'save', memo: duplicated })
+                });
+            } catch(e) { console.log("サーバー複製同期失敗"); }
+        }
+    }
+
+    /* --- 置換機能 --- */
+    function replaceText() {
+        const findVal = document.getElementById('findText').value;
+        const replaceVal = document.getElementById('replaceText').value;
+        if (!findVal) return;
+
+        const bodyInput = document.getElementById('editorBody');
+        const text = bodyInput.value;
+        
+        if (text.includes(findVal)) {
+            bodyInput.value = text.split(findVal).join(replaceVal);
+            onEditorInput();
+            showToast("置換を完了しました");
+        } else {
+            showToast("見つかりませんでした");
+        }
+    }
+
+    /* --- プレビュー表示・内検索機能 --- */
+    function highlightPreviewText() {
+        const q = document.getElementById('previewSearchInput').value.toLowerCase();
+        const previewArea = document.getElementById('previewArea');
+        const titleText = document.getElementById('editorTitle').value.trim();
+        const bodyText = document.getElementById('editorBody').value;
+
+        const escapeHtml = (str) => {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        };
+
+        let titleHtml = '';
+        if (titleText) {
+            titleHtml = `<div style="font-size: 20px; font-weight: bold; margin-bottom: 20px; border-left: 4px solid #3a4d5c; padding: 4px 0 4px 12px; color: #111; line-height: 1.3;">${escapeHtml(titleText)}</div>`;
+        }
+
+        if (!q) {
+            previewArea.innerHTML = titleHtml + `<div style="font-size: 15px; line-height: 1.7; color: #333; white-space: pre-wrap; font-family: sans-serif;">${escapeHtml(bodyText)}</div>`;
+            return;
+        }
+
+        const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp('(' + escapedQ + ')', 'gi');
+        
+        let escapedBody = escapeHtml(bodyText);
+        let highlightedBody = escapedBody.replace(regex, '<mark style="background: #ffd54f; color: #000; border-radius: 2px; padding: 0 2px;">$1</mark>');
+        
+        let highlightedTitleHtml = '';
+        if (titleText) {
+            let escapedTitle = escapeHtml(titleText);
+            let highlightedTitle = escapedTitle.replace(regex, '<mark style="background: #ffd54f; color: #000; border-radius: 2px; padding: 0 2px;">$1</mark>');
+            highlightedTitleHtml = `<div style="font-size: 20px; font-weight: bold; margin-bottom: 20px; border-left: 4px solid #3a4d5c; padding: 4px 0 4px 12px; color: #111; line-height: 1.3;">${highlightedTitle}</div>`;
+        }
+        
+        previewArea.innerHTML = highlightedTitleHtml + `<div style="font-size: 15px; line-height: 1.7; color: #333; white-space: pre-wrap; font-family: sans-serif;">${highlightedBody}</div>`;
+    }
+
+    function clearPreviewSearch() {
+        document.getElementById('previewSearchInput').value = '';
+        highlightPreviewText();
+    }
+
+    // ★ 検索バー開閉トグル関数
+    function togglePreviewSearch() {
+        const searchArea = document.getElementById('previewSearchArea');
+        searchArea.classList.toggle('search-open');
+    }
+
+    /* --- メモ詳細情報ダイアログ --- */
+    function showMemoInfo() {
+        if (!editingMemoId) return;
+        const memo = memos.find(m => m.id === editingMemoId);
+        
+        document.getElementById('infoCreatedAt').innerText = memo.createdAt || '-';
+        document.getElementById('infoUpdatedAt').innerText = memo.updatedAt || '-';
+        document.getElementById('infoLastRead').innerText = memo.lastRead || '-';
+        
+        document.getElementById('infoModalOverlay').classList.add('open');
+        document.getElementById('optionsMenu').style.display = 'none';
+    }
+
+    function closeMemoInfo() {
+        document.getElementById('infoModalOverlay').classList.remove('open');
+    }
+
+    /* --- フォルダ構造管理モーダル --- */
+    function openFolderManager() {
+        document.getElementById('folderModal').classList.add('open');
+        renderStructure();
+        toggleMenu();
+        history.pushState({ type: 'folder_active' }, null, '');
+    }
+
+    function closeFolderManager() {
+        const folderModal = document.getElementById('folderModal');
+        if (folderModal.classList.contains('open')) {
+            history.back();
+        }
+    }
+
+    function exitFolderVisuals() {
+        document.getElementById('folderModal').classList.remove('open');
+        renderMemos();
+    }
+
+    /* --- トースト・ユーティリティ --- */
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }
+
+    // ========================================================
+    // ★ブラウザバック（History API）の完全制御ロジック
+    // ========================================================
+    window.addEventListener('popstate', (e) => {
+        const editorModal = document.getElementById('editorModal');
+        const folderModal = document.getElementById('folderModal');
+        const searchInput = document.getElementById('search');
+
+        // 1. 編集画面が開いている（かつ、編集モード中）に戻った場合
+        if (editorModal.classList.contains('open')) {
+            const confirmOverlay = document.getElementById('customConfirmOverlay');
+            
+            // 確認ダイアログがすでに開いていれば閉じる（積み直し）
+            if (confirmOverlay.classList.contains('open')) {
+                confirmOverlay.classList.remove('open');
+                setTimeout(() => {
+                    history.pushState({ type: 'edit_mode_active' }, null, ''); 
+                }, 10);
+                return;
+            }
+
+            // 現在が「編集モード」の表示状態である場合、プレビューに戻す
+            if (document.getElementById('editArea').style.display === 'flex') {
+                if (isChanged) {
+                    confirmOverlay.classList.add('open');
+                    setTimeout(() => {
+                        history.pushState({ type: 'edit_mode_active' }, null, ''); 
+                    }, 10);
+                } else {
+                    // 何も編集していなければプレビューモードへ戻る
+                    switchToPreviewMode();
+                }
+                return;
+            }
+            
+            // プレビュー表示中だった場合は、エディタ全体を閉じてメイン一覧に戻る
+            exitEditorVisuals();
+            return;
+        }
+
+        // 2. フォルダ編集画面が開いている時に戻った場合
+        if (folderModal.classList.contains('open')) {
+            exitFolderVisuals();
+            return;
+        }
+
+        // 3. 検索バーに文字が入っている時に戻った場合
+        if (isSearchActiveState) {
+            isSearchActiveState = false; // 検索終了
+            if (searchInput) {
+                searchInput.value = ''; // 検索窓の文字を消去
+            }
+            renderMemos(); // 一覧を再描画して全メモを表示
+            return;
+        }
+
+        // 4. 完全なトップ画面（ホーム）で戻った場合
+        const now = Date.now();
+        if (now - lastBackPressTime < 2000) {
+            showToast("終了します");
+        } else {
+            lastBackPressTime = now;
+            showToast("もう一度戻るを押すと終了します");
+            
+            setTimeout(() => {
+                history.pushState({ type: 'home_base' }, null, '');
+                history.pushState({ type: 'home_active' }, null, '');
+            }, 10);
+        }
+    });
+
+    // ========================================================
+    // ★引き出し検索バー用のスワイプ＆タップイベントリスナー登録
+    // ========================================================
+    function initDragHandleEvents() {
+        const handle = document.getElementById('previewDragHandle');
+        const searchArea = document.getElementById('previewSearchArea');
+        
+        if (!handle || !searchArea) return;
+
+        // タップした時だけで開閉できるようにする
+        handle.addEventListener('click', () => {
+            togglePreviewSearch();
+        });
+
+        // スマホなどのスワイプ（引っ張る）検知用変数
+        let startY = 0;
+        let isDragging = false;
+
+        handle.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            isDragging = true;
+        }, { passive: true });
+
+        handle.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const currentY = e.touches[0].clientY;
+            const diffY = currentY - startY;
+
+            // 20px以上下に引っ張ったら検索バーを開く
+            if (diffY > 20 && !searchArea.classList.contains('search-open')) {
+                searchArea.classList.add('search-open');
+                isDragging = false; // 連続検知を防ぐ
+            }
+            // 20px以上上に押し上げたら検索バーを閉じる
+            else if (diffY < -20 && searchArea.classList.contains('search-open')) {
+                searchArea.classList.remove('search-open');
+                isDragging = false;
+            }
+        }, { passive: true });
+
+        handle.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+    }
+
+    function checkDraftOnStartup() {
+        console.log("アプリが正常に起動しました。総メモ数: " + memos.length);
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedTitle = urlParams.get('title');
+        const sharedText = urlParams.get('text');
+        const sharedUrl = urlParams.get('url');
+
+        if (sharedTitle || sharedText || sharedUrl) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            let contentParts = [];
+            if (sharedText) contentParts.push(sharedText);
+            if (sharedUrl) contentParts.push(sharedUrl);
+            const finalContent = contentParts.join('\n');
+
+            const finalTitle = sharedTitle ? sharedTitle.trim() : '共有されたメモ';
+
+            openEditor(null);
+
+            document.getElementById('editorTitle').value = finalTitle;
+            document.getElementById('editorBody').value = finalContent;
+            
+            onEditorInput();
+        }
+    }
+
+    // ドラッグハンドルの初期設定を確実に動かす
+    document.addEventListener('DOMContentLoaded', () => {
+        initDragHandleEvents();
+    });
+    // DOMContentLoadedが既に発生していた場合のセーフティ
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        initDragHandleEvents();
+    }
+    
+// Service Workerの登録（今ある sw.js をそのまま使う！）
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js') // ← ここが ./sw.js になっていればOKです
+            .then(reg => console.log('Service Worker 登録成功！', reg))
+            .catch(err => console.log('Service Worker 登録失敗...', err));
+    });
+}
+
+</script>
+
+</body>
+</html>
