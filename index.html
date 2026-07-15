@@ -881,9 +881,12 @@
             editingMemoId = targetMemo.id;
         }
 
-        isChanged = false;
+  isChanged = false;
+        
+        // 元の1行だけだったものを、確実にするために2行にします
         localStorage.setItem('my_memos_v4', JSON.stringify(memos));
-
+        window.localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+    
         if (navigator.onLine) {
             try {
                 await fetch(GAS_URL, {
