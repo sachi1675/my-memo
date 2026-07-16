@@ -317,36 +317,35 @@
      // ========================================================
     // サーバー同期と初期描画
     // ========================================================
-    async function loadFromServer() {
-        if (history.state?.type !== 'home_active') {
-            history.replaceState({ type: 'home_base' }, null, '');
-            history.pushState({ type: 'home_active' }, null, '');
+    // 修正後
+async function loadFromServer() {
+    if (history.state?.type !== 'home_active') {
+        history.replaceState({ type: 'home_base' }, null, '');
+        history.pushState({ type: 'home_active' }, null, '');
+    }
+
+    // まずローカルデータを表示
+    renderStructure();
+    renderMemos(); 
+    checkDraftOnStartup();
+
+    if (!navigator.onLine) return;
+
+    try {
+        const response = await fetch(GAS_URL);
+        const serverMemos = await response.json();
+        
+        // ★ここを修正：サーバーからデータが取れたら、ローカルを「上書き」する
+        if (Array.isArray(serverMemos)) {
+            memos = serverMemos;
+            localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+            renderMemos(); // サーバーのデータで再描画
         }
+    } catch(e) {
+        console.log("サーバーからの同期に失敗しましたが、ローカルデータで動作します");
+    }
+}
 
-        renderStructure();
-        renderMemos(); 
-        checkDraftOnStartup();
-
-        if (!navigator.onLine) {
-            console.log("オフラインのためサーバー同期をスキップします");
-            return;
-        }
-
-        try {
-            const response = await fetch(GAS_URL);
-            const serverMemos = await response.json();
-            // サーバーのデータが空でなければ、かつ手元のデータより新しそうなら更新する
-            if (Array.isArray(serverMemos) && serverMemos.length > 0) {
-                memos = serverMemos;
-                localStorage.setItem('my_memos_v4', JSON.stringify(memos));
-                renderMemos(); 
-            }
-        } catch(e) {
-            console.log("サーバーからの読み込みに失敗しました");
-        }
-    } // ★ここが重要！これで関数が正しく終了します
-
-    // 最後に実行する
     loadFromServer(); 
 
     function toggleMenu() {
