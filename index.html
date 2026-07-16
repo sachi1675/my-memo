@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>マイ・シンプルメモ v11★</title>
+    <title>マイ・シンプルメモ v11.1★</title>
     <style>
         :root {
             --bg-color: #f5f5f5;
@@ -181,6 +181,7 @@
         <button class="fab" onclick="openEditor()">+</button>
     </div>
 
+    <!-- メモ詳細・編集用モーダル -->
     <div class="modal" id="editorModal">
         <div class="modal-header">
             <button class="btn" id="editorBackBtn" onclick="closeEditor()">戻る</button>
@@ -191,6 +192,7 @@
             </div>
         </div>
 
+        <!-- ︙オプションメニュー -->
         <div id="optionsMenu" style="display:none; position:absolute; top:50px; right:10px; background:white; border:1px solid #ccc; z-index:100; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.2); width: 200px;">
             <div id="menuOptEdit" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="switchToEditMode()">編集</div>
             
@@ -207,6 +209,7 @@
             </div>
         </div>
 
+        <!-- プレビュー内検索バー -->
         <div id="previewSearchArea">
             <input type="text" id="previewSearchInput" placeholder="このメモ内を検索..." style="flex:1; padding:6px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px;" oninput="highlightPreviewText()">
             <button class="btn" onclick="clearPreviewSearch()" style="font-size:14px; padding:0;">クリア</button>
@@ -216,8 +219,10 @@
             <div class="drag-handle"></div>
         </div>
 
+        <!-- プレビュー表示 -->
         <div id="previewArea" style="display:none; padding:20px; font-size:16px; line-height:1.6; overflow-y:auto; flex:1;"></div>
 
+        <!-- 編集表示 -->
         <div id="editArea" style="display:flex; flex-direction:column; flex:1;">
             <div class="editor-counter-header" id="editorCounterHeader">文字数: 0 | 更新日: 今日</div>
             <input type="text" class="editor-title" id="editorTitle" placeholder="タイトルを入力..." oninput="onEditorInput()">
@@ -225,6 +230,7 @@
         </div>
     </div>
 
+    <!-- フォルダ編集画面 -->
     <div class="modal" id="folderModal">
         <div class="modal-header">
             <h2>構成の編集</h2>
@@ -255,6 +261,7 @@
         </div>
     </div>
 
+    <!-- フォルダ一括選択用モーダル -->
     <div class="info-modal-overlay" id="folderSelectModalOverlay" onclick="closeFolderSelectModal()">
         <div class="info-dialog" onclick="event.stopPropagation()">
             <div class="info-dialog-header">移動先フォルダの選択</div>
@@ -270,6 +277,7 @@
         </div>
     </div>
 
+    <!-- ポップアップ確認ダイアログ -->
     <div class="custom-confirm-overlay" id="customConfirmOverlay">
         <div class="custom-confirm-dialog">
             <div class="custom-confirm-body">編集中のメモがあります。<br>保存しますか？</div>
@@ -661,7 +669,6 @@
 
     // e. フォルダ内メモの順序を入れ替える（修正版）
     function moveMemoOrder(index, direction) {
-        // 現在のフォルダに属するメモのみ抽出して、現在の並び順でソート
         let folderMemos = memos.filter(m => m.folder === currentFolder);
         const orderArray = folderOrders[currentFolder] || [];
 
@@ -676,12 +683,10 @@
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= folderMemos.length) return;
 
-        // 配列要素を確実に入れ替え
         const temp = folderMemos[index];
         folderMemos[index] = folderMemos[targetIndex];
         folderMemos[targetIndex] = temp;
 
-        // 新しい並び順をIDの配列として保存
         folderOrders[currentFolder] = folderMemos.map(m => m.id);
         saveFolderOrders();
         renderMemos();
@@ -758,7 +763,6 @@
         modal.classList.add('open');
         isChanged = false;
 
-        // 履歴スタックを追加して、スマホの戻るキーでアプリが終了するのを防ぐ
         if (history.state?.type !== 'preview_mode_active' && history.state?.type !== 'edit_mode_active') {
             history.pushState({ type: 'preview_mode_active' }, null, '');
         }
@@ -803,7 +807,6 @@
         document.getElementById('menuOptReplaceArea').style.display = 'none';
         document.getElementById('menuOptEdit').style.display = 'block';
         
-        // ② 検索文字引き継ぎのバグを解消：即座に「search-open」を追加して検索窓を表示
         const mainSearchQuery = document.getElementById('search').value.trim();
         const searchArea = document.getElementById('previewSearchArea');
         if (mainSearchQuery) {
@@ -843,6 +846,7 @@
         const title = document.getElementById('editorTitle').value.trim();
         const content = document.getElementById('editorBody').value.trim();
 
+        // 【修正】新規作成（editingMemoId === null）で何も記入していない場合は、即時トップページに戻る
         if (!editingMemoId && !title && !content) {
             isChanged = false;
             exitEditorVisuals();
@@ -853,7 +857,13 @@
         if (document.getElementById('editArea').style.display === 'flex' && isChanged) {
             confirmOverlay.classList.add('open');
         } else {
-            history.back(); // 履歴を戻す（これでpopstate側で制御され、詳細画面が閉じられます）
+            // 【修正】新規作成で少し書いてから、保存せず「戻る」を押した（未変更扱いの）場合もトップへ戻る
+            if (!editingMemoId) {
+                exitEditorVisuals();
+                history.back();
+            } else {
+                history.back(); 
+            }
         }
     }
 
@@ -1087,7 +1097,7 @@
         setTimeout(() => { toast.style.display = 'none'; }, 2000);
     }
 
-    // ③・⑦ スマホの「戻る」ボタン/ジェスチャー処理（修正・安定版）
+    // スマホの「戻る」ボタン/ジェスチャー処理
     window.addEventListener('popstate', (e) => {
         const state = e.state;
         const editorModal = document.getElementById('editorModal');
@@ -1095,47 +1105,45 @@
         const searchInput = document.getElementById('search');
         const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
 
-        // a. 一括操作でチェックが入っている時はチェックを外す
         if (checkboxes.length > 0) {
             clearBulkSelection();
             history.pushState({ type: 'home_active' }, null, '');
             return;
         }
 
-        // 詳細・編集モーダルが開いている場合
         if (editorModal.classList.contains('open')) {
             const confirmOverlay = document.getElementById('customConfirmOverlay');
             
-            // 確認ダイヤログが開いている場合
             if (confirmOverlay.classList.contains('open')) {
                 confirmOverlay.classList.remove('open');
                 history.pushState({ type: 'edit_mode_active' }, null, ''); 
                 return;
             }
 
-            // 編集画面の場合、破棄していいか確認ダイアログを出し、履歴を維持する
             if (document.getElementById('editArea').style.display === 'flex') {
                 if (isChanged) {
                     confirmOverlay.classList.add('open');
                     history.pushState({ type: 'edit_mode_active' }, null, ''); 
                 } else {
-                    switchToPreviewMode();
+                    // 【修正】変更していないとき、新規メモなら即時トップページへ戻る
+                    if (!editingMemoId) {
+                        exitEditorVisuals();
+                    } else {
+                        switchToPreviewMode();
+                    }
                 }
                 return;
             }
             
-            // プレビュー画面の場合はおとなしく閉じる
             exitEditorVisuals();
             return;
         }
 
-        // フォルダ編集画面が開いている場合
         if (folderModal.classList.contains('open')) {
             exitFolderVisuals();
             return;
         }
 
-        // トップページの検索が有効な場合
         if (isSearchActiveState) {
             isSearchActiveState = false;
             if (searchInput) {
@@ -1145,11 +1153,9 @@
             return;
         }
 
-        // ホーム画面で2回戻るを押すと終了
         const now = Date.now();
         if (now - lastBackPressTime < 2000) {
             showToast("終了します");
-            // 実際のアプリを閉じるか、終了可能状態へ移行
         } else {
             lastBackPressTime = now;
             showToast("もう一度戻るを押すと終了します");
@@ -1157,14 +1163,13 @@
         }
     });
 
-    // ② ドラッグハンドルから検索バーを開閉するイベント登録（修正版）
+    // ドラッグハンドルから検索バーを開閉するイベント登録
     function initDragHandleEvents() {
         const handle = document.getElementById('previewDragHandle');
         const searchArea = document.getElementById('previewSearchArea');
         
         if (!handle || !searchArea) return;
 
-        // ハンドルを単にタップ（クリック）したときも開閉するようにする
         handle.onclick = (e) => {
             e.preventDefault();
             togglePreviewSearch();
@@ -1174,7 +1179,7 @@
         let isDragging = false;
 
         handle.addEventListener('touchstart', (e) => {
-            startY = e.touches[0].clientY;
+            startY = e.touches[0].clientX; // タッチ位置を取得
             isDragging = true;
         }, { passive: true });
 
@@ -1183,12 +1188,10 @@
             const currentY = e.touches[0].clientY;
             const diffY = currentY - startY;
 
-            // 下に20px以上ドラッグしたら検索窓を表示
             if (diffY > 20 && !searchArea.classList.contains('search-open')) {
                 searchArea.classList.add('search-open');
                 isDragging = false;
             }
-            // 上に20px以上ドラッグしたら検索窓を非表示
             else if (diffY < -20 && searchArea.classList.contains('search-open')) {
                 searchArea.classList.remove('search-open');
                 isDragging = false;
