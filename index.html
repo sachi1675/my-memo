@@ -294,6 +294,36 @@
     <div id="toast" class="toast-msg">もう一度戻るを押すと終了します</div>
 
 <script>
+        // 起動時に「共有」から送られてきたテキストがないかチェックする
+    window.addEventListener('DOMContentLoaded', () => {
+        const parsedUrl = new URL(window.location.href);
+        const sharedTitle = parsedUrl.searchParams.get('title') || '';
+        const sharedText = parsedUrl.searchParams.get('text') || '';
+        const sharedUrl = parsedUrl.searchParams.get('url') || '';
+
+        // 送られてきた文字（テキストやURL）が1つでもあれば、新規メモとしてエディタを開く
+        if (sharedText || sharedUrl || sharedTitle) {
+            // 共有URLと本文をきれいに改行で合流させる
+            let combinedContent = sharedText;
+            if (sharedUrl) {
+                combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
+            }
+
+            // アプリ起動を少し待ってから、エディタを開いて値をセット
+            setTimeout(() => {
+                openEditor(); // 新規作成画面を開く
+                document.getElementById('editorTitle').value = sharedTitle;
+                document.getElementById('editorBody').value = combinedContent;
+                onEditorInput(); // 文字数や更新日の表示を更新する
+            }, 300);
+
+            // URLの後ろにくっついている「?text=...」などの邪魔なパラメータを消してスッキリさせる
+            // （これをしておかないと、アプリを次回普通に起動したときにも同じメモがまた勝手に開いてしまいます）
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+    });
+
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwvHW4IQHVDy1gXYYeQlmM9MEnAiXJDCpLY2nnmaqjnBvLA4hEVBPUcUvXMfSJwCF0/exec";
     
     // データの読み込み
