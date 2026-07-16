@@ -324,26 +324,11 @@ async function loadFromServer() {
         history.pushState({ type: 'home_active' }, null, '');
     }
 
-    // まずローカルデータを表示
+    // サーバーとの通信を一切行わず、ローカルデータのみで動かす
     renderStructure();
     renderMemos(); 
     checkDraftOnStartup();
-
-    if (!navigator.onLine) return;
-
-    try {
-        const response = await fetch(GAS_URL);
-        const serverMemos = await response.json();
-        
-        // ★ここを修正：サーバーからデータが取れたら、ローカルを「上書き」する
-        if (Array.isArray(serverMemos)) {
-            memos = serverMemos;
-            localStorage.setItem('my_memos_v4', JSON.stringify(memos));
-            renderMemos(); // サーバーのデータで再描画
-        }
-    } catch(e) {
-        console.log("サーバーからの同期に失敗しましたが、ローカルデータで動作します");
-    }
+    console.log("ローカルモードで起動しました");
 }
 
     loadFromServer(); 
@@ -918,15 +903,7 @@ async function loadFromServer() {
         // 元の1行だけだったものを、確実にするために2行にします
         localStorage.setItem('my_memos_v4', JSON.stringify(memos));
         window.localStorage.setItem('my_memos_v4', JSON.stringify(memos));
-    
-        if (navigator.onLine) {
-            try {
-                await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'save', memo: targetMemo })
-                });
-            } catch(e) { console.log("サーバー保存同期失敗"); }
-        }
+  
 
         // 保存したら編集モード用の履歴を1つ破棄して、プレビュー用の履歴ステートに戻す
         if (history.state?.type === 'edit_mode_active') {
