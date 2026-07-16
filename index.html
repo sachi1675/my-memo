@@ -804,27 +804,42 @@
         document.getElementById('menuOptReplaceArea').style.display = 'flex';
     }
 
-    function onEditorInput() {
+  function onEditorInput() {
     isChanged = true;
     updateCharCount();
     
-    // --- 追加: 自動オートセーブ処理 ---
     const title = document.getElementById('editorTitle').value.trim();
     const content = document.getElementById('editorBody').value;
     const folder = document.getElementById('editorFolder').value;
-    
-    // 編集中のIDがあれば、そのメモを即時保存する
-    if (editingMemoId) {
+
+    // --- 新規作成時でも保存できるように変更 ---
+    if (!editingMemoId) {
+        // まだ保存されていない新規メモならIDを生成して配列に追加
+        editingMemoId = Date.now();
+        memos.push({
+            id: editingMemoId,
+            title: title,
+            content: content,
+            folder: folder,
+            createdAt: new Date().toLocaleString('ja-JP'),
+            updatedAt: new Date().toLocaleString('ja-JP'),
+            lastRead: new Date().toLocaleString('ja-JP')
+        });
+    } else {
+        // 既存メモなら更新
         const memo = memos.find(m => m.id === editingMemoId);
         if (memo) {
             memo.title = title;
             memo.content = content;
             memo.folder = folder;
             memo.updatedAt = new Date().toLocaleString('ja-JP');
-            localStorage.setItem('my_memos_v4', JSON.stringify(memos));
         }
     }
+    
+    // 最後にローカルストレージに保存
+    localStorage.setItem('my_memos_v4', JSON.stringify(memos));
 }
+
     function onFolderChange() {
         isChanged = true;
     }
