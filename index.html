@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>マイ・シンプルメモ v9★</title>
+    <title>マイ・シンプルメモ v10★</title>
     <style>
         :root {
             --bg-color: #f5f5f5;
@@ -18,7 +18,7 @@
         body { font-family: sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
         
         /* サイドバー */
-        .sidebar { position: fixed; top: 0; left: -260px; width: 260px; height: 100%; background: var(--sidebar-bg); color: var(--sidebar-text); transition: 0.3s; z-index: 1000; padding: 20px; overflow-y: auto; }
+        .sidebar { position: fixed; top: 0; left: -260px; width: 260px; height: 100%; background: var(--sidebar-bg); color: var(--sidebar-text); transition: 0.3s; z-index: 1000; padding: 20px; overflow-y: auto; touch-action: pan-y; }
         .sidebar.open { left: 0; }
         .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; z-index: 999; }
         .sidebar-overlay.show { display: block; }
@@ -49,6 +49,10 @@
         .memo-info { flex: 1; min-width: 0; }
         .memo-title { font-weight: bold; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .memo-meta { font-size: 12px; color: #777; display: flex; justify-content: space-between; margin-top: 5px; }
+        
+        /* メモ並び替え用の上下ボタン */
+        .memo-order-btns { display: flex; flex-direction: column; gap: 4px; }
+        .order-btn { background: #eee; border: none; font-size: 10px; padding: 4px 6px; border-radius: 3px; cursor: pointer; }
 
         /* モーダル */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: none; flex-direction: column; z-index: 2000; }
@@ -175,8 +179,10 @@
         <button class="fab" onclick="openEditor()">+</button>
     </div>
 
+    <!-- メモ詳細・編集用モーダル -->
     <div class="modal" id="editorModal">
         <div class="modal-header">
+            <!-- ③ 戻るボタンの調整 -->
             <button class="btn" id="editorBackBtn" onclick="closeEditor()">戻る</button>
             <div id="viewModeHeader" style="font-weight:bold;">メモ詳細</div>
             <div style="display:flex; gap:10px; align-items:center;">
@@ -185,16 +191,18 @@
             </div>
         </div>
 
+        <!-- ︙オプションメニュー -->
         <div id="optionsMenu" style="display:none; position:absolute; top:50px; right:10px; background:white; border:1px solid #ccc; z-index:100; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.2); width: 200px;">
             <div id="menuOptEdit" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="switchToEditMode()">編集</div>
-            <div id="menuOptDelete" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="deleteMemo()">削除</div>
-            <div id="menuOptInfo" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="showMemoInfo()">詳細情報</div>
             
-            <div id="menuOptFolderArea" style="padding:10px; border-bottom:1px solid #eee; background:#f9f9f9; display:none;">
+            <!-- ⑤ プレビュー側メニュー: フォルダ変更と複製 -->
+            <div id="menuOptFolderArea" style="padding:10px; border-bottom:1px solid #eee; background:#f9f9f9;">
                 <span style="font-size: 12px; color: #666; font-weight:bold;">フォルダ変更:</span>
                 <select class="editor-folder-select" id="editorFolder" onchange="onFolderChange()"></select>
             </div>
+            <div id="menuOptDuplicate" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="duplicateMemo()">メモを複製</div>
             
+            <!-- ⑥ 詳細情報や削除は編集画面のメニューから排除したため、ここに非表示エリアを作っておくかプレビュー専用とする -->
             <div id="menuOptReplaceArea" style="padding:10px; display:none; flex-direction:column; gap:5px; background:#f9f9f9;">
                 <input type="text" id="findText" placeholder="検索" style="width:100%; padding:4px; font-size:12px;">
                 <input type="text" id="replaceText" placeholder="置換" style="width:100%; padding:4px; font-size:12px;">
@@ -202,6 +210,7 @@
             </div>
         </div>
 
+        <!-- ④ プレビュー内検索バー -->
         <div id="previewSearchArea" style="display:none; padding:8px 15px; background:#f9f9f9; border-bottom:1px solid #eee; align-items:center; gap:10px;">
             <input type="text" id="previewSearchInput" placeholder="このメモ内を検索..." style="flex:1; padding:6px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px;" oninput="highlightPreviewText()">
             <button class="btn" onclick="clearPreviewSearch()" style="font-size:14px; padding:0;">クリア</button>
@@ -211,8 +220,10 @@
             <div class="drag-handle"></div>
         </div>
 
+        <!-- プレビュー表示 -->
         <div id="previewArea" style="display:none; padding:20px; font-size:16px; line-height:1.6; overflow-y:auto; flex:1;"></div>
 
+        <!-- 編集表示 -->
         <div id="editArea" style="display:flex; flex-direction:column; flex:1;">
             <div class="editor-counter-header" id="editorCounterHeader">文字数: 0 | 更新日: 今日</div>
             <input type="text" class="editor-title" id="editorTitle" placeholder="タイトルを入力..." oninput="onEditorInput()">
@@ -220,6 +231,7 @@
         </div>
     </div>
 
+    <!-- フォルダ編集画面 -->
     <div class="modal" id="folderModal">
         <div class="modal-header">
             <h2>構成の編集</h2>
@@ -250,29 +262,24 @@
         </div>
     </div>
 
-    <div class="info-modal-overlay" id="infoModalOverlay" onclick="closeMemoInfo()">
+    <!-- フォルダ一括選択用モーダル(a用のカスタムセレクトダイアログ) -->
+    <div class="info-modal-overlay" id="folderSelectModalOverlay" onclick="closeFolderSelectModal()">
         <div class="info-dialog" onclick="event.stopPropagation()">
-            <div class="info-dialog-header">情報</div>
+            <div class="info-dialog-header">移動先フォルダの選択</div>
             <div class="info-dialog-body">
-                <div>
-                    <div class="info-label">作成時刻</div>
-                    <div class="info-value-box" id="infoCreatedAt">-</div>
-                </div>
-                <div>
-                    <div class="info-label">変更時刻</div>
-                    <div class="info-value-box" id="infoUpdatedAt">-</div>
-                </div>
-                <div>
-                    <div class="info-label">最後に読んだ時刻</div>
-                    <div class="info-value-box" id="infoLastRead">-</div>
-                </div>
+                <div class="info-label">フォルダを選んでください</div>
+                <select id="bulkFolderSelect" class="editor-folder-select">
+                    <!-- JavaScriptでオプションを動的に追加 -->
+                </select>
             </div>
-            <div class="info-dialog-footer">
-                <button class="info-dialog-btn" onclick="closeMemoInfo()">OK</button>
+            <div class="info-dialog-footer" style="gap: 10px;">
+                <button class="info-dialog-btn" style="background:#aaa;" onclick="closeFolderSelectModal()">キャンセル</button>
+                <button class="info-dialog-btn" onclick="executeBulkMove()">移動する</button>
             </div>
         </div>
     </div>
 
+    <!-- ポップアップ確認ダイアログ -->
     <div class="custom-confirm-overlay" id="customConfirmOverlay">
         <div class="custom-confirm-dialog">
             <div class="custom-confirm-body">編集中のメモがあります。<br>保存しますか？</div>
@@ -305,9 +312,16 @@
     let isChanged = false;
     let isSearchActiveState = false;
 
+    // e. フォルダごとの並び順を管理する配列 (メモIDの順序を保存)
+    let folderOrders = JSON.parse(localStorage.getItem('my_folder_orders_v4')) || {};
+
     // ローカル保存
     function saveAllMemos() {
         localStorage.setItem('my_memos_v4', JSON.stringify(memos));
+    }
+
+    function saveFolderOrders() {
+        localStorage.setItem('my_folder_orders_v4', JSON.stringify(folderOrders));
     }
 
     // 初期化と起動
@@ -318,7 +332,7 @@
         }
         renderStructure();
         renderMemos(); 
-        checkDraftOnStartup();
+        initSwipeEvents();
         console.log("ローカルモードで起動しました");
     }
 
@@ -327,6 +341,36 @@
     function toggleMenu() {
         document.getElementById('sidebar').classList.toggle('open');
         document.getElementById('overlay').classList.toggle('show');
+    }
+
+    // d. スライドしてサイドバーを閉じるジェスチャー
+    function initSwipeEvents() {
+        const sidebar = document.getElementById('sidebar');
+        let startX = 0;
+        let isSwiping = false;
+
+        sidebar.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            isSwiping = true;
+        }, { passive: true });
+
+        sidebar.addEventListener('touchmove', (e) => {
+            if (!isSwiping) return;
+            const currentX = e.touches[0].clientX;
+            const diffX = currentX - startX;
+
+            // 左へのスワイプを検知
+            if (diffX < -50) {
+                if (sidebar.classList.contains('open')) {
+                    toggleMenu();
+                }
+                isSwiping = false;
+            }
+        }, { passive: true });
+
+        sidebar.addEventListener('touchend', () => {
+            isSwiping = false;
+        });
     }
 
     document.addEventListener('click', function(e) {
@@ -374,17 +418,26 @@
         const folderHeadSelect = document.getElementById('folderHeaderSelect');
         const manageFolderList = document.getElementById('manageFolderList');
         const manageHeaderList = document.getElementById('manageHeaderList');
+        const bulkFolderSelect = document.getElementById('bulkFolderSelect');
 
         sidebar.innerHTML = '';
         editorSelect.innerHTML = '';
         folderHeadSelect.innerHTML = '';
         manageFolderList.innerHTML = '';
         manageHeaderList.innerHTML = '';
+        if (bulkFolderSelect) bulkFolderSelect.innerHTML = '';
 
         const optNone = document.createElement('option');
         optNone.value = '';
         optNone.innerText = '未分類（指定なし）';
         editorSelect.appendChild(optNone);
+
+        if (bulkFolderSelect) {
+            const bulkOptNone = document.createElement('option');
+            bulkOptNone.value = '';
+            bulkOptNone.innerText = '未分類（指定なし）';
+            bulkFolderSelect.appendChild(bulkOptNone);
+        }
 
         headers.forEach(h => {
             const opt = document.createElement('option');
@@ -415,6 +468,12 @@
                 const opt = document.createElement('option');
                 opt.value = f.name; opt.innerText = f.name;
                 editorSelect.appendChild(opt);
+
+                if (bulkFolderSelect) {
+                    const bulkOpt = document.createElement('option');
+                    bulkOpt.value = f.name; bulkOpt.innerText = f.name;
+                    bulkFolderSelect.appendChild(bulkOpt);
+                }
 
                 const mfItem = document.createElement('div');
                 mfItem.className = 'manage-list-item';
@@ -521,15 +580,41 @@
         const searchQuery = document.getElementById('search').value.toLowerCase();
         list.innerHTML = '';
         let filtered = [...memos]; 
-        if (currentFolder !== 'all') { filtered = filtered.filter(m => m.folder === currentFolder); }
-        if (searchQuery) { filtered = filtered.filter(m => (m.title && m.title.toLowerCase().includes(searchQuery)) || (m.content && m.content.toLowerCase().includes(searchQuery))); }
-        filtered.sort((a,b) => b.id - a.id);
+        
+        // フォルダ絞り込み
+        if (currentFolder !== 'all') { 
+            filtered = filtered.filter(m => m.folder === currentFolder); 
+        }
+        
+        // 検索絞り込み
+        if (searchQuery) { 
+            filtered = filtered.filter(m => (m.title && m.title.toLowerCase().includes(searchQuery)) || (m.content && m.content.toLowerCase().includes(searchQuery))); 
+        }
+        
+        // e. メモ並び替えルール：フォルダ絞り込み時のみカスタム並び替えを適用。それ以外は新規作成日（ID）順
+        if (currentFolder !== 'all' && folderOrders[currentFolder]) {
+            const orderArray = folderOrders[currentFolder];
+            filtered.sort((a, b) => {
+                let indexA = orderArray.indexOf(a.id);
+                let indexB = orderArray.indexOf(b.id);
+                if (indexA === -1) indexA = 999999;
+                if (indexB === -1) indexB = 999999;
+                return indexA - indexB;
+            });
+        } else {
+            filtered.sort((a,b) => b.id - a.id);
+        }
+
         updateBulkButtonsStatus();
         if(filtered.length === 0) { list.innerHTML = '<div style="color:#777; text-align:center; margin-top:20px;">メモがありません</div>'; return; }
-        filtered.forEach(memo => {
+        
+        filtered.forEach((memo, idx) => {
             const item = document.createElement('div');
             item.className = 'memo-item';
-            item.onclick = (e) => { if(e.target.classList.contains('memo-checkbox')) return; openEditor(memo.id); };
+            item.onclick = (e) => { 
+                if(e.target.classList.contains('memo-checkbox') || e.target.classList.contains('order-btn')) return; 
+                openEditor(memo.id); 
+            };
             const highlight = (text) => {
                 if (!searchQuery) return text;
                 const regex = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
@@ -537,11 +622,57 @@
             };
             let displayTitle = memo.title && memo.title.trim() ? memo.title : (memo.content.split('\n')[0] || '無題のメモ');
             const displayDate = memo.updatedAt ? memo.updatedAt.split(' ')[0] : '日付不明';
-            item.innerHTML = `<input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
-                <div class="memo-info"><div class="memo-title">${highlight(displayTitle)}</div>
-                <div class="memo-meta"><span>${memo.folder || '未分類'}</span><span>${displayDate}</span></div></div>`;
+            
+            // e. フォルダ内表示の場合のみ「▲」「▼」の並び替えボタンを表示する
+            let orderBtnHtml = '';
+            if (currentFolder !== 'all' && !searchQuery) {
+                orderBtnHtml = `
+                    <div class="memo-order-btns">
+                        <button class="order-btn" onclick="moveMemoOrder(${idx}, -1)">▲</button>
+                        <button class="order-btn" onclick="moveMemoOrder(${idx}, 1)">▼</button>
+                    </div>
+                `;
+            }
+
+            item.innerHTML = `
+                <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
+                <div class="memo-info">
+                    <div class="memo-title">${highlight(displayTitle)}</div>
+                    <div class="memo-meta"><span>${memo.folder || '未分類'}</span><span>${displayDate}</span></div>
+                </div>
+                ${orderBtnHtml}`;
             list.appendChild(item);
         });
+    }
+
+    // e. フォルダ内メモの順序を入れ替える
+    function moveMemoOrder(index, direction) {
+        let filtered = memos.filter(m => m.folder === currentFolder);
+        if (currentFolder !== 'all' && folderOrders[currentFolder]) {
+            const orderArray = folderOrders[currentFolder];
+            filtered.sort((a, b) => {
+                let indexA = orderArray.indexOf(a.id);
+                let indexB = orderArray.indexOf(b.id);
+                if (indexA === -1) indexA = 999999;
+                if (indexB === -1) indexB = 999999;
+                return indexA - indexB;
+            });
+        } else {
+            filtered.sort((a,b) => b.id - a.id);
+        }
+
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= filtered.length) return;
+
+        // 位置を入れ替え
+        const temp = filtered[index];
+        filtered[index] = filtered[targetIndex];
+        filtered[targetIndex] = temp;
+
+        // 入れ替え結果を並び順管理用のID配列に保存
+        folderOrders[currentFolder] = filtered.map(m => m.id);
+        saveFolderOrders();
+        renderMemos();
     }
 
     function updateBulkButtonsStatus() {
@@ -551,6 +682,13 @@
         const moveBtn = document.getElementById('bulkMoveBtn');
         if (hasChecked) { delBtn.classList.add('active'); moveBtn.classList.add('active'); }
         else { delBtn.classList.remove('active'); moveBtn.classList.remove('active'); }
+    }
+
+    // a. 戻るキー/スワイプ戻るで一括操作のチェックを解除する機能
+    function clearBulkSelection() {
+        const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
+        checkboxes.forEach(cb => { cb.checked = false; });
+        updateBulkButtonsStatus();
     }
 
     async function deleteSelectedMemos() {
@@ -567,24 +705,48 @@
         }
     }
 
-    async function moveSelectedMemos() {
+    // a. 「移動」ボタンを押したときにフォルダ候補セレクトポップアップを表示する
+    function moveSelectedMemos() {
         const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
         if (checkboxes.length === 0) return;
-        const folderNames = folders.map(f => f.name);
-        const targetFolder = prompt(`移動先フォルダ名を入力してください:\n${folderNames.join(', ')}`);
-        if (!targetFolder) return;
+        
+        // フォルダ選択用ダイアログを開く
+        renderStructure(); // 移動先選択肢の最新ロード
+        document.getElementById('folderSelectModalOverlay').classList.add('open');
+    }
+
+    function closeFolderSelectModal() {
+        document.getElementById('folderSelectModalOverlay').classList.remove('open');
+    }
+
+    // a. 選択したフォルダへ一括移動を実行する
+    async function executeBulkMove() {
+        const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
+        const targetFolder = document.getElementById('bulkFolderSelect').value;
         const idsToMove = Array.from(checkboxes).map(cb => Number(cb.dataset.id));
-        const folderValue = targetFolder === '未分類' ? '' : targetFolder;
-        memos.forEach(m => { if (idsToMove.includes(m.id)) { m.folder = folderValue; } });
+
+        memos.forEach(m => { 
+            if (idsToMove.includes(m.id)) { 
+                m.folder = targetFolder; 
+            } 
+        });
+
         saveAllMemos();
+        closeFolderSelectModal();
+        clearBulkSelection(); // 移動完了後、自動でチェックを外す
         renderMemos();
+
         if (navigator.onLine) {
-            try { await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'bulkMove', ids: idsToMove, folder: folderValue }) }); } catch(e) {}
+            try { await fetch(GAS_URL, { method: 'POST', body: JSON.stringify({ action: 'bulkMove', ids: idsToMove, folder: targetFolder }) }); } catch(e) {}
         }
+        showToast("選択したメモを移動しました");
     }
 
     // エディタ（または詳細画面）を開く
     function openEditor(id = null) {
+        // ⑧ 開く前に︙メニューの表示状態を確実に閉じておく
+        document.getElementById('optionsMenu').style.display = 'none';
+        
         const modal = document.getElementById('editorModal');
         modal.classList.add('open');
         isChanged = false;
@@ -601,29 +763,55 @@
             }
             switchToPreviewMode();
         } else {
+            // 新規作成時
             editingMemoId = null;
             document.getElementById('editorTitle').value = '';
             document.getElementById('editorBody').value = '';
-            document.getElementById('editorFolder').value = '';
+            
+            // ① ≡から特定のフォルダを選択中に新規作成（＋）を押した際、そのフォルダを初期選択する
+            if (currentFolder !== 'all') {
+                document.getElementById('editorFolder').value = currentFolder;
+            } else {
+                document.getElementById('editorFolder').value = '';
+            }
+            
             switchToEditMode();
         }
     }
 
     function switchToPreviewMode() {
+        // ⑧ プレビュー切り替え時も確実に︙メニューを閉じる
+        document.getElementById('optionsMenu').style.display = 'none';
+
         document.getElementById('editArea').style.display = 'none';
         document.getElementById('previewArea').style.display = 'block';
         document.getElementById('previewDragHandle').style.display = 'flex';
         document.getElementById('headerSaveBtn').style.display = 'none';
         document.getElementById('viewModeHeader').innerText = 'メモ詳細';
         
-        document.getElementById('menuOptFolderArea').style.display = 'none';
+        // ⑥ プレビュー画面の︙内メニュー項目のみを制御する
+        document.getElementById('menuOptFolderArea').style.display = 'block'; // ⑤ プレビュー側にのみフォルダ変更を表示
+        document.getElementById('menuOptDuplicate').style.display = 'block'; // ⑤ プレビュー側にのみ複製を表示
         document.getElementById('menuOptReplaceArea').style.display = 'none';
         document.getElementById('menuOptEdit').style.display = 'block';
         
+        // ② メインの検索ワードをプレビュー側の検索バーに引き継ぐ
+        const mainSearchQuery = document.getElementById('search').value.trim();
+        if (mainSearchQuery) {
+            document.getElementById('previewSearchArea').classList.add('search-open');
+            document.getElementById('previewSearchInput').value = mainSearchQuery;
+        } else {
+            document.getElementById('previewSearchArea').classList.remove('search-open');
+            document.getElementById('previewSearchInput').value = '';
+        }
+
         highlightPreviewText();
     }
 
     function switchToEditMode() {
+        // ⑧ 編集切り替え時も確実に︙メニューを閉じる
+        document.getElementById('optionsMenu').style.display = 'none';
+
         document.getElementById('editArea').style.display = 'flex';
         document.getElementById('previewArea').style.display = 'none';
         document.getElementById('previewDragHandle').style.display = 'none';
@@ -631,7 +819,9 @@
         document.getElementById('headerSaveBtn').style.display = 'block';
         document.getElementById('viewModeHeader').innerText = 'メモ編集';
         
+        // ⑥ 編集画面の︙には、削除や詳細情報を表示させず、置換のみ残す(フォルダ変更は編集画面でも便利なので残しています)
         document.getElementById('menuOptFolderArea').style.display = 'block';
+        document.getElementById('menuOptDuplicate').style.display = 'none';
         document.getElementById('menuOptReplaceArea').style.display = 'flex';
         document.getElementById('menuOptEdit').style.display = 'none';
         
@@ -643,13 +833,26 @@
 
     function closeEditor() {
         const confirmOverlay = document.getElementById('customConfirmOverlay');
+        const title = document.getElementById('editorTitle').value.trim();
+        const content = document.getElementById('editorBody').value.trim();
+
+        // b. 新規作成（＋）で何も書かずに戻る場合、無条件でプレビューへ飛ばずトップ画面に戻る
+        if (!editingMemoId && !title && !content) {
+            isChanged = false;
+            exitEditorVisuals();
+            if (history.state?.type === 'edit_mode_active') {
+                history.go(-1);
+            }
+            return;
+        }
+
         if (document.getElementById('editArea').style.display === 'flex' && isChanged) {
             confirmOverlay.classList.add('open');
         } else {
             if (history.state?.type === 'edit_mode_active') {
-                history.go(-2);
+                history.go(-1); // 編集から戻る際は1個履歴を戻す
             } else {
-                history.back();
+                exitEditorVisuals();
             }
         }
     }
@@ -678,9 +881,23 @@
     }
 
     function onFolderChange() {
-        onEditorInput();
+        // ⑤ プレビューや編集画面でフォルダを変更した時、即時保存して一覧に反映
+        const folderValue = document.getElementById('editorFolder').value;
+        if (editingMemoId) {
+            const memo = memos.find(m => m.id === editingMemoId);
+            if (memo) {
+                memo.folder = folderValue;
+                memo.updatedAt = new Date().toLocaleString('ja-JP');
+                saveAllMemos();
+                showToast("フォルダを移動しました");
+                renderMemos();
+            }
+        } else {
+            isChanged = true;
+        }
     }
 
+    // ⑦ 破棄と保存を完全に分離したカスタムポップアップ管理
     function handleCustomConfirm(action) {
         const confirmOverlay = document.getElementById('customConfirmOverlay');
         confirmOverlay.classList.remove('open');
@@ -689,10 +906,15 @@
             saveMemo();
         } else if (action === 'discard') {
             isChanged = false;
+            // ⑦ 変更を完全に破棄して元に戻す（新規の場合はリストから消す）
+            if (editingMemoId) {
+                // ローカルストレージを直接読み直すことで編集前のデータにリセット
+                const oldMemos = JSON.parse(localStorage.getItem('my_memos_v4')) || [];
+                memos = oldMemos;
+            }
+            exitEditorVisuals();
             if (history.state?.type === 'edit_mode_active') {
-                history.go(-2);
-            } else {
-                history.back();
+                history.go(-1);
             }
         }
     }
@@ -700,27 +922,16 @@
     function onEditorInput() {
         isChanged = true;
         updateCharCount();
-        const title = document.getElementById('editorTitle').value.trim();
-        const content = document.getElementById('editorBody').value;
-        const folder = document.getElementById('editorFolder').value;
-        if (!editingMemoId) {
-            editingMemoId = Date.now();
-            memos.push({ id: editingMemoId, title, content, folder, createdAt: new Date().toLocaleString('ja-JP'), updatedAt: new Date().toLocaleString('ja-JP'), lastRead: new Date().toLocaleString('ja-JP') });
-        } else {
-            const memo = memos.find(m => m.id === editingMemoId);
-            if (memo) { memo.title = title; memo.content = content; memo.folder = folder; memo.updatedAt = new Date().toLocaleString('ja-JP'); }
-        }
-        saveAllMemos();
     }
 
-    // 復元したセーブ関数
+    // 保存関数
     async function saveMemo() {
         const title = document.getElementById('editorTitle').value.trim();
         const content = document.getElementById('editorBody').value;
         const folder = document.getElementById('editorFolder').value;
         
         if (!content.trim() && !title.trim()) {
-            showToast("タイトルまたは内容を入力してください");
+            showToast("内容がありません。");
             return;
         }
 
@@ -748,7 +959,7 @@
         saveAllMemos();
         isChanged = false;
 
-        // サーバー同期（非同期）
+        // サーバー同期
         const memoToSend = memos.find(m => m.id === editingMemoId);
         if (navigator.onLine && memoToSend) {
             fetch(GAS_URL, {
@@ -757,38 +968,11 @@
             }).catch(e => console.log("サーバー同期エラー"));
         }
 
-        if (history.state?.type === 'edit_mode_active') { 
-            history.back(); 
-        } else { 
-            switchToPreviewMode(); 
-        }
         showToast("保存しました");
+        switchToPreviewMode();
     }
 
-    // 復元した削除関数
-    async function deleteMemo() {
-        if (!editingMemoId) { isChanged = false; history.back(); return; }
-        if (confirm('このメモを削除しますか？')) {
-            const idToDelete = editingMemoId;
-            memos = memos.filter(m => m.id !== idToDelete);
-            saveAllMemos();
-            isChanged = false;
-            
-            if (history.state?.type === 'edit_mode_active') { 
-                history.go(-2); 
-            } else { 
-                history.back(); 
-            }
-
-            if (navigator.onLine) {
-                fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'delete', id: idToDelete })
-                }).catch(e => console.log("サーバー削除同期エラー"));
-            }
-        }
-    }
-
+    // ⑤ 複製(コピー)機能の実装
     async function duplicateMemo() {
         if (!editingMemoId) return;
         const original = memos.find(m => m.id === editingMemoId);
@@ -808,7 +992,7 @@
         memos.push(duplicated);
         saveAllMemos();
         document.getElementById('optionsMenu').style.display = 'none';
-        showToast("複製を作成しました");
+        showToast("メモを複製しました");
 
         editingMemoId = duplicated.id;
         switchToPreviewMode();
@@ -886,22 +1070,6 @@
         searchArea.classList.toggle('search-open');
     }
 
-    function showMemoInfo() {
-        if (!editingMemoId) return;
-        const memo = memos.find(m => m.id === editingMemoId);
-        
-        document.getElementById('infoCreatedAt').innerText = memo.createdAt || '-';
-        document.getElementById('infoUpdatedAt').innerText = memo.updatedAt || '-';
-        document.getElementById('infoLastRead').innerText = memo.lastRead || '-';
-        
-        document.getElementById('infoModalOverlay').classList.add('open');
-        document.getElementById('optionsMenu').style.display = 'none';
-    }
-
-    function closeMemoInfo() {
-        document.getElementById('infoModalOverlay').classList.remove('open');
-    }
-
     function openFolderManager() {
         document.getElementById('folderModal').classList.add('open');
         renderStructure();
@@ -928,10 +1096,19 @@
         setTimeout(() => { toast.style.display = 'none'; }, 2000);
     }
 
+    // ③・⑦ 戻る処理
     window.addEventListener('popstate', (e) => {
         const editorModal = document.getElementById('editorModal');
         const folderModal = document.getElementById('folderModal');
         const searchInput = document.getElementById('search');
+        const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
+
+        // a. 一括操作でチェックが入っている時、戻る操作でチェックを外す
+        if (checkboxes.length > 0) {
+            clearBulkSelection();
+            history.pushState({ type: 'home_active' }, null, '');
+            return;
+        }
 
         if (editorModal.classList.contains('open')) {
             const confirmOverlay = document.getElementById('customConfirmOverlay');
@@ -944,6 +1121,7 @@
                 return;
             }
 
+            // 編集画面の場合
             if (document.getElementById('editArea').style.display === 'flex') {
                 if (isChanged) {
                     confirmOverlay.classList.add('open');
@@ -956,6 +1134,7 @@
                 return;
             }
             
+            // プレビュー画面の場合
             exitEditorVisuals();
             return;
         }
@@ -1024,33 +1203,6 @@
         handle.addEventListener('touchend', () => {
             isDragging = false;
         });
-    }
-
-    function checkDraftOnStartup() {
-        console.log("アプリが正常に起動しました。総メモ数: " + memos.length);
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const sharedTitle = urlParams.get('title');
-        const sharedText = urlParams.get('text');
-        const sharedUrl = urlParams.get('url');
-
-        if (sharedTitle || sharedText || sharedUrl) {
-            window.history.replaceState({}, document.title, window.location.pathname);
-
-            let contentParts = [];
-            if (sharedText) contentParts.push(sharedText);
-            if (sharedUrl) contentParts.push(sharedUrl);
-            const finalContent = contentParts.join('\n');
-
-            const finalTitle = sharedTitle ? sharedTitle.trim() : '共有されたメモ';
-
-            openEditor(null);
-
-            document.getElementById('editorTitle').value = finalTitle;
-            document.getElementById('editorBody').value = finalContent;
-            
-            onEditorInput();
-        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
