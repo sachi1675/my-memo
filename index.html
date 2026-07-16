@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="manifest" href="manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>マイ・シンプルメモ v10★</title>
+    <title>マイ・シンプルメモ v11★</title>
     <style>
         :root {
             --bg-color: #f5f5f5;
@@ -51,8 +51,9 @@
         .memo-meta { font-size: 12px; color: #777; display: flex; justify-content: space-between; margin-top: 5px; }
         
         /* メモ並び替え用の上下ボタン */
-        .memo-order-btns { display: flex; flex-direction: column; gap: 4px; }
-        .order-btn { background: #eee; border: none; font-size: 10px; padding: 4px 6px; border-radius: 3px; cursor: pointer; }
+        .memo-order-btns { display: flex; flex-direction: column; gap: 4px; margin-left: auto; }
+        .order-btn { background: #eee; border: none; font-size: 12px; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: #555; }
+        .order-btn:active { background: #ddd; }
 
         /* モーダル */
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: none; flex-direction: column; z-index: 2000; }
@@ -116,26 +117,27 @@
 
         /* スライド式内検索エリア */
         #previewSearchArea {
-            display: flex;
-            transition: max-height 0.3s ease-out, opacity 0.2s ease-out, padding 0.3s ease-out;
+            display: none;
+            transition: max-height 0.3s ease-out, opacity 0.2s ease-out;
             max-height: 0;
             opacity: 0;
-            padding-top: 0 !important;
-            padding-bottom: 0 !important;
             overflow: hidden;
             border-bottom: 1px solid #eee;
+            align-items: center;
+            gap: 10px;
+            background: #f9f9f9;
         }
         #previewSearchArea.search-open {
+            display: flex !important;
             max-height: 60px;
             opacity: 1;
-            padding-top: 8px !important;
-            padding-bottom: 8px !important;
+            padding: 8px 15px;
         }
 
         /* ドラッグハンドル */
         .drag-handle-container {
             width: 100%;
-            height: 20px;
+            height: 24px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -146,9 +148,9 @@
         }
         .drag-handle {
             width: 40px;
-            height: 4px;
+            height: 5px;
             background-color: #ccc;
-            border-radius: 2px;
+            border-radius: 3px;
             transition: background-color 0.2s;
         }
         .drag-handle-container:active .drag-handle {
@@ -179,10 +181,8 @@
         <button class="fab" onclick="openEditor()">+</button>
     </div>
 
-    <!-- メモ詳細・編集用モーダル -->
     <div class="modal" id="editorModal">
         <div class="modal-header">
-            <!-- ③ 戻るボタンの調整 -->
             <button class="btn" id="editorBackBtn" onclick="closeEditor()">戻る</button>
             <div id="viewModeHeader" style="font-weight:bold;">メモ詳細</div>
             <div style="display:flex; gap:10px; align-items:center;">
@@ -191,18 +191,15 @@
             </div>
         </div>
 
-        <!-- ︙オプションメニュー -->
         <div id="optionsMenu" style="display:none; position:absolute; top:50px; right:10px; background:white; border:1px solid #ccc; z-index:100; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.2); width: 200px;">
             <div id="menuOptEdit" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="switchToEditMode()">編集</div>
             
-            <!-- ⑤ プレビュー側メニュー: フォルダ変更と複製 -->
             <div id="menuOptFolderArea" style="padding:10px; border-bottom:1px solid #eee; background:#f9f9f9;">
                 <span style="font-size: 12px; color: #666; font-weight:bold;">フォルダ変更:</span>
                 <select class="editor-folder-select" id="editorFolder" onchange="onFolderChange()"></select>
             </div>
             <div id="menuOptDuplicate" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="duplicateMemo()">メモを複製</div>
             
-            <!-- ⑥ 詳細情報や削除は編集画面のメニューから排除したため、ここに非表示エリアを作っておくかプレビュー専用とする -->
             <div id="menuOptReplaceArea" style="padding:10px; display:none; flex-direction:column; gap:5px; background:#f9f9f9;">
                 <input type="text" id="findText" placeholder="検索" style="width:100%; padding:4px; font-size:12px;">
                 <input type="text" id="replaceText" placeholder="置換" style="width:100%; padding:4px; font-size:12px;">
@@ -210,8 +207,7 @@
             </div>
         </div>
 
-        <!-- ④ プレビュー内検索バー -->
-        <div id="previewSearchArea" style="display:none; padding:8px 15px; background:#f9f9f9; border-bottom:1px solid #eee; align-items:center; gap:10px;">
+        <div id="previewSearchArea">
             <input type="text" id="previewSearchInput" placeholder="このメモ内を検索..." style="flex:1; padding:6px 12px; border:1px solid #ccc; border-radius:4px; font-size:14px;" oninput="highlightPreviewText()">
             <button class="btn" onclick="clearPreviewSearch()" style="font-size:14px; padding:0;">クリア</button>
         </div>
@@ -220,10 +216,8 @@
             <div class="drag-handle"></div>
         </div>
 
-        <!-- プレビュー表示 -->
         <div id="previewArea" style="display:none; padding:20px; font-size:16px; line-height:1.6; overflow-y:auto; flex:1;"></div>
 
-        <!-- 編集表示 -->
         <div id="editArea" style="display:flex; flex-direction:column; flex:1;">
             <div class="editor-counter-header" id="editorCounterHeader">文字数: 0 | 更新日: 今日</div>
             <input type="text" class="editor-title" id="editorTitle" placeholder="タイトルを入力..." oninput="onEditorInput()">
@@ -231,7 +225,6 @@
         </div>
     </div>
 
-    <!-- フォルダ編集画面 -->
     <div class="modal" id="folderModal">
         <div class="modal-header">
             <h2>構成の編集</h2>
@@ -262,14 +255,12 @@
         </div>
     </div>
 
-    <!-- フォルダ一括選択用モーダル(a用のカスタムセレクトダイアログ) -->
     <div class="info-modal-overlay" id="folderSelectModalOverlay" onclick="closeFolderSelectModal()">
         <div class="info-dialog" onclick="event.stopPropagation()">
             <div class="info-dialog-header">移動先フォルダの選択</div>
             <div class="info-dialog-body">
                 <div class="info-label">フォルダを選んでください</div>
                 <select id="bulkFolderSelect" class="editor-folder-select">
-                    <!-- JavaScriptでオプションを動的に追加 -->
                 </select>
             </div>
             <div class="info-dialog-footer" style="gap: 10px;">
@@ -279,7 +270,6 @@
         </div>
     </div>
 
-    <!-- ポップアップ確認ダイアログ -->
     <div class="custom-confirm-overlay" id="customConfirmOverlay">
         <div class="custom-confirm-dialog">
             <div class="custom-confirm-body">編集中のメモがあります。<br>保存しますか？</div>
@@ -294,33 +284,28 @@
     <div id="toast" class="toast-msg">もう一度戻るを押すと終了します</div>
 
 <script>
-        // 起動時に「共有」から送られてきたテキストがないかチェックする
+    // 起動時の「Android共有機能」の受け取り処理
     window.addEventListener('DOMContentLoaded', () => {
         const parsedUrl = new URL(window.location.href);
         const sharedTitle = parsedUrl.searchParams.get('title') || '';
         const sharedText = parsedUrl.searchParams.get('text') || '';
         const sharedUrl = parsedUrl.searchParams.get('url') || '';
 
-        // 送られてきた文字（テキストやURL）が1つでもあれば、新規メモとしてエディタを開く
         if (sharedText || sharedUrl || sharedTitle) {
-            // 共有URLと本文をきれいに改行で合流させる
             let combinedContent = sharedText;
             if (sharedUrl) {
                 combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
             }
 
-            // アプリ起動を少し待ってから、エディタを開いて値をセット
             setTimeout(() => {
-                openEditor(); // 新規作成画面を開く
+                openEditor();
                 document.getElementById('editorTitle').value = sharedTitle;
                 document.getElementById('editorBody').value = combinedContent;
-                onEditorInput(); // 文字数や更新日の表示を更新する
+                onEditorInput();
             }, 300);
 
-            // URLの後ろにくっついている「?text=...」などの邪魔なパラメータを消してスッキリさせる
-            // （これをしておかないと、アプリを次回普通に起動したときにも同じメモがまた勝手に開いてしまいます）
             const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, document.title, cleanUrl);
+            window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
         }
     });
 
@@ -342,7 +327,7 @@
     let isChanged = false;
     let isSearchActiveState = false;
 
-    // e. フォルダごとの並び順を管理する配列 (メモIDの順序を保存)
+    // e. フォルダごとの並び順を管理する配列
     let folderOrders = JSON.parse(localStorage.getItem('my_folder_orders_v4')) || {};
 
     // ローカル保存
@@ -354,26 +339,21 @@
         localStorage.setItem('my_folder_orders_v4', JSON.stringify(folderOrders));
     }
 
-    // 初期化と起動
+    // 初期化と履歴の強制設定（戻るボタンが機能するようにスタックを確保）
+    function initHistoryState() {
+        window.history.replaceState({ type: 'home_base' }, null, '');
+        window.history.pushState({ type: 'home_active' }, null, '');
+    }
+
     async function loadFromServer() {
-        if (history.state?.type !== 'home_active') {
-            history.replaceState({ type: 'home_base' }, null, '');
-            history.pushState({ type: 'home_active' }, null, '');
-        }
+        initHistoryState();
         renderStructure();
         renderMemos(); 
         initSwipeEvents();
-        console.log("ローカルモードで起動しました");
+        initDragHandleEvents();
     }
 
-    loadFromServer(); 
-
-    function toggleMenu() {
-        document.getElementById('sidebar').classList.toggle('open');
-        document.getElementById('overlay').classList.toggle('show');
-    }
-
-    // d. スライドしてサイドバーを閉じるジェスチャー
+    // スライドしてサイドバーを閉じる
     function initSwipeEvents() {
         const sidebar = document.getElementById('sidebar');
         let startX = 0;
@@ -389,7 +369,6 @@
             const currentX = e.touches[0].clientX;
             const diffX = currentX - startX;
 
-            // 左へのスワイプを検知
             if (diffX < -50) {
                 if (sidebar.classList.contains('open')) {
                     toggleMenu();
@@ -420,6 +399,11 @@
     document.getElementById('previewArea').addEventListener('dblclick', function() {
         switchToEditMode();
     });
+
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('show');
+    }
 
     function selectFolder(folder) {
         currentFolder = folder;
@@ -621,7 +605,7 @@
             filtered = filtered.filter(m => (m.title && m.title.toLowerCase().includes(searchQuery)) || (m.content && m.content.toLowerCase().includes(searchQuery))); 
         }
         
-        // e. メモ並び替えルール：フォルダ絞り込み時のみカスタム並び替えを適用。それ以外は新規作成日（ID）順
+        // e. 並び順の決定
         if (currentFolder !== 'all' && folderOrders[currentFolder]) {
             const orderArray = folderOrders[currentFolder];
             filtered.sort((a, b) => {
@@ -642,7 +626,7 @@
             const item = document.createElement('div');
             item.className = 'memo-item';
             item.onclick = (e) => { 
-                if(e.target.classList.contains('memo-checkbox') || e.target.classList.contains('order-btn')) return; 
+                if(e.target.classList.contains('memo-checkbox') || e.target.closest('.memo-order-btns') || e.target.classList.contains('order-btn')) return; 
                 openEditor(memo.id); 
             };
             const highlight = (text) => {
@@ -653,7 +637,7 @@
             let displayTitle = memo.title && memo.title.trim() ? memo.title : (memo.content.split('\n')[0] || '無題のメモ');
             const displayDate = memo.updatedAt ? memo.updatedAt.split(' ')[0] : '日付不明';
             
-            // e. フォルダ内表示の場合のみ「▲」「▼」の並び替えボタンを表示する
+            // e. 並び替え用の「▲」「▼」ボタン（フォルダ内かつ検索中でない場合のみ）
             let orderBtnHtml = '';
             if (currentFolder !== 'all' && !searchQuery) {
                 orderBtnHtml = `
@@ -675,32 +659,30 @@
         });
     }
 
-    // e. フォルダ内メモの順序を入れ替える
+    // e. フォルダ内メモの順序を入れ替える（修正版）
     function moveMemoOrder(index, direction) {
-        let filtered = memos.filter(m => m.folder === currentFolder);
-        if (currentFolder !== 'all' && folderOrders[currentFolder]) {
-            const orderArray = folderOrders[currentFolder];
-            filtered.sort((a, b) => {
-                let indexA = orderArray.indexOf(a.id);
-                let indexB = orderArray.indexOf(b.id);
-                if (indexA === -1) indexA = 999999;
-                if (indexB === -1) indexB = 999999;
-                return indexA - indexB;
-            });
-        } else {
-            filtered.sort((a,b) => b.id - a.id);
-        }
+        // 現在のフォルダに属するメモのみ抽出して、現在の並び順でソート
+        let folderMemos = memos.filter(m => m.folder === currentFolder);
+        const orderArray = folderOrders[currentFolder] || [];
+
+        folderMemos.sort((a, b) => {
+            let indexA = orderArray.indexOf(a.id);
+            let indexB = orderArray.indexOf(b.id);
+            if (indexA === -1) indexA = 999999;
+            if (indexB === -1) indexB = 999999;
+            return indexA - indexB;
+        });
 
         const targetIndex = index + direction;
-        if (targetIndex < 0 || targetIndex >= filtered.length) return;
+        if (targetIndex < 0 || targetIndex >= folderMemos.length) return;
 
-        // 位置を入れ替え
-        const temp = filtered[index];
-        filtered[index] = filtered[targetIndex];
-        filtered[targetIndex] = temp;
+        // 配列要素を確実に入れ替え
+        const temp = folderMemos[index];
+        folderMemos[index] = folderMemos[targetIndex];
+        folderMemos[targetIndex] = temp;
 
-        // 入れ替え結果を並び順管理用のID配列に保存
-        folderOrders[currentFolder] = filtered.map(m => m.id);
+        // 新しい並び順をIDの配列として保存
+        folderOrders[currentFolder] = folderMemos.map(m => m.id);
         saveFolderOrders();
         renderMemos();
     }
@@ -714,7 +696,6 @@
         else { delBtn.classList.remove('active'); moveBtn.classList.remove('active'); }
     }
 
-    // a. 戻るキー/スワイプ戻るで一括操作のチェックを解除する機能
     function clearBulkSelection() {
         const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
         checkboxes.forEach(cb => { cb.checked = false; });
@@ -735,13 +716,11 @@
         }
     }
 
-    // a. 「移動」ボタンを押したときにフォルダ候補セレクトポップアップを表示する
     function moveSelectedMemos() {
         const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
         if (checkboxes.length === 0) return;
         
-        // フォルダ選択用ダイアログを開く
-        renderStructure(); // 移動先選択肢の最新ロード
+        renderStructure();
         document.getElementById('folderSelectModalOverlay').classList.add('open');
     }
 
@@ -749,7 +728,6 @@
         document.getElementById('folderSelectModalOverlay').classList.remove('open');
     }
 
-    // a. 選択したフォルダへ一括移動を実行する
     async function executeBulkMove() {
         const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
         const targetFolder = document.getElementById('bulkFolderSelect').value;
@@ -763,7 +741,7 @@
 
         saveAllMemos();
         closeFolderSelectModal();
-        clearBulkSelection(); // 移動完了後、自動でチェックを外す
+        clearBulkSelection(); 
         renderMemos();
 
         if (navigator.onLine) {
@@ -772,14 +750,18 @@
         showToast("選択したメモを移動しました");
     }
 
-    // エディタ（または詳細画面）を開く
+    // エディタを開く
     function openEditor(id = null) {
-        // ⑧ 開く前に︙メニューの表示状態を確実に閉じておく
         document.getElementById('optionsMenu').style.display = 'none';
         
         const modal = document.getElementById('editorModal');
         modal.classList.add('open');
         isChanged = false;
+
+        // 履歴スタックを追加して、スマホの戻るキーでアプリが終了するのを防ぐ
+        if (history.state?.type !== 'preview_mode_active' && history.state?.type !== 'edit_mode_active') {
+            history.pushState({ type: 'preview_mode_active' }, null, '');
+        }
 
         if (id) {
             editingMemoId = id;
@@ -793,12 +775,10 @@
             }
             switchToPreviewMode();
         } else {
-            // 新規作成時
             editingMemoId = null;
             document.getElementById('editorTitle').value = '';
             document.getElementById('editorBody').value = '';
             
-            // ① ≡から特定のフォルダを選択中に新規作成（＋）を押した際、そのフォルダを初期選択する
             if (currentFolder !== 'all') {
                 document.getElementById('editorFolder').value = currentFolder;
             } else {
@@ -810,7 +790,6 @@
     }
 
     function switchToPreviewMode() {
-        // ⑧ プレビュー切り替え時も確実に︙メニューを閉じる
         document.getElementById('optionsMenu').style.display = 'none';
 
         document.getElementById('editArea').style.display = 'none';
@@ -819,19 +798,19 @@
         document.getElementById('headerSaveBtn').style.display = 'none';
         document.getElementById('viewModeHeader').innerText = 'メモ詳細';
         
-        // ⑥ プレビュー画面の︙内メニュー項目のみを制御する
-        document.getElementById('menuOptFolderArea').style.display = 'block'; // ⑤ プレビュー側にのみフォルダ変更を表示
-        document.getElementById('menuOptDuplicate').style.display = 'block'; // ⑤ プレビュー側にのみ複製を表示
+        document.getElementById('menuOptFolderArea').style.display = 'block'; 
+        document.getElementById('menuOptDuplicate').style.display = 'block'; 
         document.getElementById('menuOptReplaceArea').style.display = 'none';
         document.getElementById('menuOptEdit').style.display = 'block';
         
-        // ② メインの検索ワードをプレビュー側の検索バーに引き継ぐ
+        // ② 検索文字引き継ぎのバグを解消：即座に「search-open」を追加して検索窓を表示
         const mainSearchQuery = document.getElementById('search').value.trim();
+        const searchArea = document.getElementById('previewSearchArea');
         if (mainSearchQuery) {
-            document.getElementById('previewSearchArea').classList.add('search-open');
+            searchArea.classList.add('search-open');
             document.getElementById('previewSearchInput').value = mainSearchQuery;
         } else {
-            document.getElementById('previewSearchArea').classList.remove('search-open');
+            searchArea.classList.remove('search-open');
             document.getElementById('previewSearchInput').value = '';
         }
 
@@ -839,7 +818,6 @@
     }
 
     function switchToEditMode() {
-        // ⑧ 編集切り替え時も確実に︙メニューを閉じる
         document.getElementById('optionsMenu').style.display = 'none';
 
         document.getElementById('editArea').style.display = 'flex';
@@ -849,7 +827,6 @@
         document.getElementById('headerSaveBtn').style.display = 'block';
         document.getElementById('viewModeHeader').innerText = 'メモ編集';
         
-        // ⑥ 編集画面の︙には、削除や詳細情報を表示させず、置換のみ残す(フォルダ変更は編集画面でも便利なので残しています)
         document.getElementById('menuOptFolderArea').style.display = 'block';
         document.getElementById('menuOptDuplicate').style.display = 'none';
         document.getElementById('menuOptReplaceArea').style.display = 'flex';
@@ -857,7 +834,7 @@
         
         updateCharCount();
         if (history.state?.type !== 'edit_mode_active') {
-            history.pushState({ type: 'edit_mode_active' }, null, '');
+            history.replaceState({ type: 'edit_mode_active' }, null, '');
         }
     }
 
@@ -866,24 +843,17 @@
         const title = document.getElementById('editorTitle').value.trim();
         const content = document.getElementById('editorBody').value.trim();
 
-        // b. 新規作成（＋）で何も書かずに戻る場合、無条件でプレビューへ飛ばずトップ画面に戻る
         if (!editingMemoId && !title && !content) {
             isChanged = false;
             exitEditorVisuals();
-            if (history.state?.type === 'edit_mode_active') {
-                history.go(-1);
-            }
+            history.back();
             return;
         }
 
         if (document.getElementById('editArea').style.display === 'flex' && isChanged) {
             confirmOverlay.classList.add('open');
         } else {
-            if (history.state?.type === 'edit_mode_active') {
-                history.go(-1); // 編集から戻る際は1個履歴を戻す
-            } else {
-                exitEditorVisuals();
-            }
+            history.back(); // 履歴を戻す（これでpopstate側で制御され、詳細画面が閉じられます）
         }
     }
 
@@ -911,7 +881,6 @@
     }
 
     function onFolderChange() {
-        // ⑤ プレビューや編集画面でフォルダを変更した時、即時保存して一覧に反映
         const folderValue = document.getElementById('editorFolder').value;
         if (editingMemoId) {
             const memo = memos.find(m => m.id === editingMemoId);
@@ -927,7 +896,6 @@
         }
     }
 
-    // ⑦ 破棄と保存を完全に分離したカスタムポップアップ管理
     function handleCustomConfirm(action) {
         const confirmOverlay = document.getElementById('customConfirmOverlay');
         confirmOverlay.classList.remove('open');
@@ -936,16 +904,12 @@
             saveMemo();
         } else if (action === 'discard') {
             isChanged = false;
-            // ⑦ 変更を完全に破棄して元に戻す（新規の場合はリストから消す）
             if (editingMemoId) {
-                // ローカルストレージを直接読み直すことで編集前のデータにリセット
                 const oldMemos = JSON.parse(localStorage.getItem('my_memos_v4')) || [];
                 memos = oldMemos;
             }
             exitEditorVisuals();
-            if (history.state?.type === 'edit_mode_active') {
-                history.go(-1);
-            }
+            history.back();
         }
     }
 
@@ -954,7 +918,6 @@
         updateCharCount();
     }
 
-    // 保存関数
     async function saveMemo() {
         const title = document.getElementById('editorTitle').value.trim();
         const content = document.getElementById('editorBody').value;
@@ -989,7 +952,6 @@
         saveAllMemos();
         isChanged = false;
 
-        // サーバー同期
         const memoToSend = memos.find(m => m.id === editingMemoId);
         if (navigator.onLine && memoToSend) {
             fetch(GAS_URL, {
@@ -1002,7 +964,6 @@
         switchToPreviewMode();
     }
 
-    // ⑤ 複製(コピー)機能の実装
     async function duplicateMemo() {
         if (!editingMemoId) return;
         const original = memos.find(m => m.id === editingMemoId);
@@ -1126,54 +1087,55 @@
         setTimeout(() => { toast.style.display = 'none'; }, 2000);
     }
 
-    // ③・⑦ 戻る処理
+    // ③・⑦ スマホの「戻る」ボタン/ジェスチャー処理（修正・安定版）
     window.addEventListener('popstate', (e) => {
+        const state = e.state;
         const editorModal = document.getElementById('editorModal');
         const folderModal = document.getElementById('folderModal');
         const searchInput = document.getElementById('search');
         const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
 
-        // a. 一括操作でチェックが入っている時、戻る操作でチェックを外す
+        // a. 一括操作でチェックが入っている時はチェックを外す
         if (checkboxes.length > 0) {
             clearBulkSelection();
             history.pushState({ type: 'home_active' }, null, '');
             return;
         }
 
+        // 詳細・編集モーダルが開いている場合
         if (editorModal.classList.contains('open')) {
             const confirmOverlay = document.getElementById('customConfirmOverlay');
             
+            // 確認ダイヤログが開いている場合
             if (confirmOverlay.classList.contains('open')) {
                 confirmOverlay.classList.remove('open');
-                setTimeout(() => {
-                    history.pushState({ type: 'edit_mode_active' }, null, ''); 
-                }, 10);
+                history.pushState({ type: 'edit_mode_active' }, null, ''); 
                 return;
             }
 
-            // 編集画面の場合
+            // 編集画面の場合、破棄していいか確認ダイアログを出し、履歴を維持する
             if (document.getElementById('editArea').style.display === 'flex') {
                 if (isChanged) {
                     confirmOverlay.classList.add('open');
-                    setTimeout(() => {
-                        history.pushState({ type: 'edit_mode_active' }, null, ''); 
-                    }, 10);
+                    history.pushState({ type: 'edit_mode_active' }, null, ''); 
                 } else {
                     switchToPreviewMode();
                 }
                 return;
             }
             
-            // プレビュー画面の場合
+            // プレビュー画面の場合はおとなしく閉じる
             exitEditorVisuals();
             return;
         }
 
+        // フォルダ編集画面が開いている場合
         if (folderModal.classList.contains('open')) {
             exitFolderVisuals();
             return;
         }
 
+        // トップページの検索が有効な場合
         if (isSearchActiveState) {
             isSearchActiveState = false;
             if (searchInput) {
@@ -1183,29 +1145,30 @@
             return;
         }
 
+        // ホーム画面で2回戻るを押すと終了
         const now = Date.now();
         if (now - lastBackPressTime < 2000) {
             showToast("終了します");
+            // 実際のアプリを閉じるか、終了可能状態へ移行
         } else {
             lastBackPressTime = now;
             showToast("もう一度戻るを押すと終了します");
-            
-            setTimeout(() => {
-                history.pushState({ type: 'home_base' }, null, '');
-                history.pushState({ type: 'home_active' }, null, '');
-            }, 10);
+            history.pushState({ type: 'home_active' }, null, '');
         }
     });
 
+    // ② ドラッグハンドルから検索バーを開閉するイベント登録（修正版）
     function initDragHandleEvents() {
         const handle = document.getElementById('previewDragHandle');
         const searchArea = document.getElementById('previewSearchArea');
         
         if (!handle || !searchArea) return;
 
-        handle.addEventListener('click', () => {
+        // ハンドルを単にタップ（クリック）したときも開閉するようにする
+        handle.onclick = (e) => {
+            e.preventDefault();
             togglePreviewSearch();
-        });
+        };
 
         let startY = 0;
         let isDragging = false;
@@ -1220,10 +1183,12 @@
             const currentY = e.touches[0].clientY;
             const diffY = currentY - startY;
 
+            // 下に20px以上ドラッグしたら検索窓を表示
             if (diffY > 20 && !searchArea.classList.contains('search-open')) {
                 searchArea.classList.add('search-open');
                 isDragging = false;
             }
+            // 上に20px以上ドラッグしたら検索窓を非表示
             else if (diffY < -20 && searchArea.classList.contains('search-open')) {
                 searchArea.classList.remove('search-open');
                 isDragging = false;
@@ -1235,20 +1200,15 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        initDragHandleEvents();
-    });
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        initDragHandleEvents();
-    }
-    
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
+    // 起動処理
+    window.addEventListener('load', () => {
+        loadFromServer();
+        if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker 登録成功！', reg))
+                .then(reg => console.log('Service Worker 登録成功！'))
                 .catch(err => console.log('Service Worker 登録失敗...', err));
-        });
-    }
+        }
+    });
 </script>
 
 </body>
