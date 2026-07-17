@@ -315,9 +315,15 @@
 <script>
     // 起動時の「Android共有機能」の受け取り処理（タイマー廃止・即時クレンジング版）
     window.addEventListener('DOMContentLoaded', () => {
-        const parsedUrl = new URL(window.location.href);
-        const sharedTitle = parsedUrl.searchParams.get('title') || '';
-        const sharedText = parsedUrl.searchParams.get('text') || '';
+    const parsedUrl = new URL(window.location.href);
+    
+    // デバッグ用のログ出力
+    console.log("URL:", window.location.href);
+    console.log("全パラメータ:", Object.fromEntries(parsedUrl.searchParams.entries()));
+
+    const sharedTitle = parsedUrl.searchParams.get('title') || '';
+    const sharedText = parsedUrl.searchParams.get('text') || ''; // ここを確認
+    // ...以下略
         const sharedUrl = parsedUrl.searchParams.get('url') || '';
 
         if (sharedText || sharedUrl || sharedTitle) {
