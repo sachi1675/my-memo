@@ -1382,15 +1382,72 @@
         });
     }
 
-    // 起動処理
-    window.addEventListener('load', () => {
-        loadFromServer();
+    // Android共有データの処理を関数化
+    function handleSharedData() {
+        const parsedUrl = new URL(window.location.href);
+        const sharedTitle = parsedUrl.searchParams.get('title') || '';
+        const sharedText = parsedUrl.searchParams.get('text') || '';
+        const sharedUrl = parsedUrl.searchParams.get('url') || '';
+
+        if (sharedText || sharedUrl || sharedTitle) {
+            let combinedContent = sharedText;
+            if (sharedUrl) {
+                combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
+            }
+
+            editingMemoId = Date.now();
+            const nowStr = new Date().toLocaleString('ja-JP');
+            
+            const newSharedMemo = {
+                id: editingMemoId,
+                title: sharedTitle,
+                content: combinedContent,
+                folder: currentFolder !== 'all' ? currentFolder : 'inbox',
+                createdAt: nowStr,
+                updatedAt: nowStr,
+                lastRead: nowStr
+            };
+            
+            // 既存のmemos配列に重複がないか確認して追加
+            if (!memos.some(m => m.id === newSharedMemo.id)) {
+                memos.push(newSharedMemo);
+                saveAllMemos();
+            }
+            
+            if (navigator.onLine) {
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'save', memo: newSharedMemo })
+                }).catch(e => console.log("共有データのサーバー同期エラー"));
+            }
+            
+            // URLをクレンジング
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
+
+            // 確実に描画が終わった後にエディタを開く
+            setTimeout(() => {
+                openEditor(editingMemoId);
+                switchToEditMode();
+            }, 100);
+        }
+    }
+
+    // 起動処理（サーバー読み込み完了後に共有データを処理する）
+    window.addEventListener('load', async () => {
+        // 1. まずサーバー/ローカルからデータを読み込み、画面を構築する
+        await loadFromServer();
+        
+        // 2. その後、もし共有データがあれば割り込んでエディタを開く
+        handleSharedData();
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
                 .then(reg => console.log('Service Worker 登録成功！'))
                 .catch(err => console.log('Service Worker 登録失敗...', err));
         }
     });
+
 </script>
 
 </body>
