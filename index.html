@@ -338,11 +338,14 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             editingMemoId = Date.now();
             const nowStr = new Date().toLocaleString('ja-JP');
             
+            // フォルダが空ならデフォルトの'inbox'を強制
+            const targetFolder = (currentFolder && currentFolder !== 'all') ? currentFolder : 'inbox';
+            
             const newSharedMemo = {
                 id: editingMemoId,
                 title: sharedTitle,
                 content: combinedContent,
-                folder: currentFolder !== 'all' ? currentFolder : 'inbox',
+                folder: targetFolder, // 必ず有効な値をセット
                 createdAt: nowStr,
                 updatedAt: nowStr,
                 lastRead: nowStr
@@ -427,8 +430,9 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             console.error("サーバー読み込みエラー:", e);
         }
 
-        // 読み込みが成功しても失敗しても、最後に必ず一覧を表示する
-        renderMemos();
+        // --- ここに追加 ---
+        renderStructure(); // 構造（フォルダ一覧など）を再構築してリフレッシュ
+        renderMemos();     // メモ一覧を表示
     }
 
     // スライドしてサイドバーを閉じる
