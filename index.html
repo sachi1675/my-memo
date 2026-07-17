@@ -845,15 +845,14 @@ const sharedText = parsedUrl.searchParams.get('text') ||
 
     // エディタを開く
     function openEditor(id = null) {
+    function openEditor(id = null) {
         document.getElementById('optionsMenu').style.display = 'none';
-        
         const modal = document.getElementById('editorModal');
         modal.classList.add('open');
         isChanged = false;
 
-        if (history.state?.type !== 'preview_mode_active' && history.state?.type !== 'edit_mode_active') {
-            history.pushState({ type: 'preview_mode_active' }, null, '');
-        }
+        // 【修正】履歴スタックを確実に積み上げる
+        history.pushState({ type: 'preview_mode_active' }, null, '');
 
         if (id) {
             editingMemoId = id;
@@ -870,13 +869,7 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             editingMemoId = null;
             document.getElementById('editorTitle').value = '';
             document.getElementById('editorBody').value = '';
-            
-            if (currentFolder !== 'all') {
-                document.getElementById('editorFolder').value = currentFolder;
-            } else {
-                document.getElementById('editorFolder').value = '';
-            }
-            
+            document.getElementById('editorFolder').value = (currentFolder !== 'all') ? currentFolder : '';
             switchToEditMode();
         }
     }
@@ -1380,7 +1373,7 @@ const sharedText = parsedUrl.searchParams.get('text') ||
         });
     }
 
-       async function handleSharedData() {
+    async function handleSharedData() {
         const parsedUrl = new URL(window.location.href);
         const sharedTitle = parsedUrl.searchParams.get('title') || '';
         const sharedText = parsedUrl.searchParams.get('text') || '';
@@ -1388,14 +1381,10 @@ const sharedText = parsedUrl.searchParams.get('text') ||
 
         if (sharedText || sharedUrl || sharedTitle) {
             let combinedContent = sharedText;
-            if (sharedUrl) {
-                combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
-            }
+            if (sharedUrl) combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
 
             editingMemoId = Date.now();
             const nowStr = new Date().toLocaleString('ja-JP');
-            
-            // フォルダが空ならデフォルトの'inbox'を強制
             const targetFolder = (currentFolder && currentFolder !== 'all') ? currentFolder : 'inbox';
             
             const newSharedMemo = {
@@ -1408,34 +1397,28 @@ const sharedText = parsedUrl.searchParams.get('text') ||
                 lastRead: nowStr
             };
             
-            // 既存のmemos配列に追加
-            if (!memos.some(m => m.id === newSharedMemo.id)) {
-                memos.push(newSharedMemo);
-                saveAllMemos();
-            }
+            // 既存のmemosに追加し、即座に保存
+            memos.push(newSharedMemo);
+            saveAllMemos();
             
-            // サーバーに保存
+            // サーバー同期
             if (navigator.onLine) {
-                try {
-                    await fetch(GAS_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'save', memo: newSharedMemo })
-                    });
-                } catch(e) { console.log("共有データのサーバー同期エラー"); }
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'save', memo: newSharedMemo })
+                }).catch(e => console.log(e));
             }
             
-            // URLをクレンジング
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
+            // URLクレンジング
+            window.history.replaceState({ type: 'home_active' }, document.title, window.location.origin + window.location.pathname);
 
-            // 【重要】追加した後に必ず再描画を行う
-            renderStructure(); 
-            renderMemos();
+            // 【重要】共有直後の遷移スタックを強制確保
+            history.pushState({ type: 'preview_mode_active' }, null, '');
             
-            setTimeout(() => {
-                openEditor(editingMemoId);
-                switchToEditMode();
-            }, 100);
+            renderStructure();
+            renderMemos();
+            openEditor(editingMemoId);
+            switchToEditMode();
         }
     }
 
