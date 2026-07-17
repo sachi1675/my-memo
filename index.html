@@ -1380,8 +1380,7 @@ const sharedText = parsedUrl.searchParams.get('text') ||
         });
     }
 
-    // Android共有データの処理を関数化
-    function handleSharedData() {
+       async function handleSharedData() {
         const parsedUrl = new URL(window.location.href);
         const sharedTitle = parsedUrl.searchParams.get('title') || '';
         const sharedText = parsedUrl.searchParams.get('text') || '';
@@ -1396,34 +1395,43 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             editingMemoId = Date.now();
             const nowStr = new Date().toLocaleString('ja-JP');
             
+            // フォルダが空ならデフォルトの'inbox'を強制
+            const targetFolder = (currentFolder && currentFolder !== 'all') ? currentFolder : 'inbox';
+            
             const newSharedMemo = {
                 id: editingMemoId,
                 title: sharedTitle,
                 content: combinedContent,
-                folder: currentFolder !== 'all' ? currentFolder : 'inbox',
+                folder: targetFolder,
                 createdAt: nowStr,
                 updatedAt: nowStr,
                 lastRead: nowStr
             };
             
-            // 既存のmemos配列に重複がないか確認して追加
+            // 既存のmemos配列に追加
             if (!memos.some(m => m.id === newSharedMemo.id)) {
                 memos.push(newSharedMemo);
                 saveAllMemos();
             }
             
+            // サーバーに保存
             if (navigator.onLine) {
-                fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'save', memo: newSharedMemo })
-                }).catch(e => console.log("共有データのサーバー同期エラー"));
+                try {
+                    await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'save', memo: newSharedMemo })
+                    });
+                } catch(e) { console.log("共有データのサーバー同期エラー"); }
             }
             
             // URLをクレンジング
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
 
-            // 確実に描画が終わった後にエディタを開く
+            // 【重要】追加した後に必ず再描画を行う
+            renderStructure(); 
+            renderMemos();
+            
             setTimeout(() => {
                 openEditor(editingMemoId);
                 switchToEditMode();
