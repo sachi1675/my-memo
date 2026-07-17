@@ -322,8 +322,10 @@
     console.log("全パラメータ:", Object.fromEntries(parsedUrl.searchParams.entries()));
 
     const sharedTitle = parsedUrl.searchParams.get('title') || '';
-    const sharedText = parsedUrl.searchParams.get('text') || ''; // ここを確認
-    // ...以下略
+    // text が取れない場合、body や content も試す
+const sharedText = parsedUrl.searchParams.get('text') || 
+                   parsedUrl.searchParams.get('body') || 
+                   parsedUrl.searchParams.get('content') || '';
         const sharedUrl = parsedUrl.searchParams.get('url') || '';
 
         if (sharedText || sharedUrl || sharedTitle) {
