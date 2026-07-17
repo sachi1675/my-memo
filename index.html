@@ -326,16 +326,35 @@
                 combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
             }
 
-                        setTimeout(() => {
-                openEditor();
-                document.getElementById('editorTitle').value = sharedTitle;
-                document.getElementById('editorBody').value = combinedContent;
+            setTimeout(() => {
+                // --- 共有データから即座にメモを作成して保存する処理に修正 ---
+                editingMemoId = Date.now(); // 新しいメモのIDを確定させる
+                const nowStr = new Date().toLocaleString('ja-JP');
                 
-                // --- ここから自動保存と日付セットの処理を追加 ---
-                // 共有から入ってきた時点で、自動的に現在の日時でメモの枠組みを作る
-                isChanged = true;
-                saveMemo();
-                // --- ここまで追加 ---
+                const newSharedMemo = {
+                    id: editingMemoId,
+                    title: sharedTitle,
+                    content: combinedContent,
+                    folder: currentFolder !== 'all' ? currentFolder : 'inbox', // フォルダが無ければinboxへ
+                    createdAt: nowStr,
+                    updatedAt: nowStr,
+                    lastRead: nowStr
+                };
+                
+                memos.push(newSharedMemo);
+                saveAllMemos();
+                
+                // サーバー（GAS）にも即座に送る
+                if (navigator.onLine) {
+                    fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'save', memo: newSharedMemo })
+                    }).catch(e => console.log("共有データのサーバー同期エラー"));
+                }
+                
+                // エディタを開いて中身をセットし、プレビューモードで表示
+                openEditor(editingMemoId);
+                // --- ここまで修正 ---
             }, 300);
 
             const cleanUrl = window.location.origin + window.location.pathname;
@@ -692,21 +711,20 @@
             };
                         let displayTitle = memo.title && memo.title.trim() ? memo.title : (memo.content.split('\n')[0] || '無題のメモ');
             
-            // --- ここから日付のクレンジング処理を追加 ---
+                        // --- ここから日付のクレンジング処理を追加（スラッシュ統一版） ---
             let displayDate = '日付不明';
             if (memo.updatedAt && !memo.updatedAt.includes('{{$date}}')) {
-                // Tが入る形式（ISO形式）の場合は、日付部分だけをハイフン区切りで抜き出す
                 if (memo.updatedAt.includes('T')) {
-                    displayDate = memo.updatedAt.split('T')[0];
+                    // ハイフン区切りをスラッシュ区切りに変換
+                    displayDate = memo.updatedAt.split('T')[0].replace(/-/g, '/');
                 } else {
-                    // 通常の「2026/7/17 12:34:56」のような形式なら、スペースで区切って日付だけにする
                     displayDate = memo.updatedAt.split(' ')[0];
                 }
             } else {
-                // 日付が壊れているか初期値のままなら、今日の数字を入れておく
                 displayDate = new Date().toLocaleDateString('ja-JP');
             }
             // --- ここまで追加 ---
+
             
             // e. 並び替え用の「▲」「▼」ボタン（フォルダ内かつ検索中でない場合のみ）
             let orderBtnHtml = '';
@@ -1104,9 +1122,28 @@
         const memo = memos.find(m => m.id === editingMemoId);
         if (!memo) return;
 
-        document.getElementById('infoCreatedAt').innerText = memo.createdAt || '不明';
-        document.getElementById('infoUpdatedAt').innerText = memo.updatedAt || '不明';
-        document.getElementById('infoLastRead').innerText = memo.lastRead || '不明';
+        // 日付の変な文字列（TやZ）を綺麗にするためのミニ関数
+        const cleanDate = (dateStr) => {
+            if (!dateStr || dateStr.includes('{{$date}}')) return '日付不明';
+            if (dateStr.includes('T')) {
+                // "2026-07-17T03:02:04.000Z" みたいなのを "2026/07/17 03:02:04" に直す
+                const parts = dateStr.split('T');
+                const datePart = parts[0].replace(/-/g, '/');
+                const timePart = parts[1].split('.')[0];
+                return `${datePart} ${timePart}`;
+            }
+            return dateStr;
+        };
+
+        // もし作成日時が空っぽだったら、ID（タイムスタンプ）から逆算して表示する
+        let createdAtShow = cleanDate(memo.createdAt);
+        if (createdAtShow === '日付不明' && memo.id) {
+            createdAtShow = new Date(Number(memo.id)).toLocaleString('ja-JP');
+        }
+
+        document.getElementById('infoCreatedAt').innerText = createdAtShow;
+        document.getElementById('infoUpdatedAt').innerText = cleanDate(memo.updatedAt);
+        document.getElementById('infoLastRead').innerText = cleanDate(memo.lastRead);
         document.getElementById('infoCharCount').innerText = (memo.content || '').length + ' 文字';
 
         document.getElementById('infoModalOverlay').classList.add('open');
