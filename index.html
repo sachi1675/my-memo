@@ -327,7 +327,7 @@
             }
 
             setTimeout(() => {
-                // --- 共有データから即座にメモを作成して保存する処理に修正 ---
+                // --- 共有データから即座にメモを作成して保存する処理（URLリセット付き） ---
                 editingMemoId = Date.now(); // 新しいメモのIDを確定させる
                 const nowStr = new Date().toLocaleString('ja-JP');
                 
@@ -352,6 +352,10 @@
                     }).catch(e => console.log("共有データのサーバー同期エラー"));
                 }
                 
+                // 【超重要】URLの「?title=...」の部分を完全に消去して、アプリの再読み込みバグを防ぐ
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
+
                 // エディタを開いて中身をセットし、プレビューモードで表示
                 openEditor(editingMemoId);
                 // --- ここまで修正 ---
