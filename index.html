@@ -405,40 +405,40 @@ const sharedText = parsedUrl.searchParams.get('text') ||
     }
 
     async function loadFromServer() {
-        initHistoryState();
-        renderStructure();
-        
-        // --- ここからGASからの読み込み処理（マージ対応版） ---
-        if (navigator.onLine) {
-            try {
-                const response = await fetch(GAS_URL);
-                if (response.ok) {
-                    const serverMemos = await response.json();
-                    if (Array.isArray(serverMemos) && serverMemos.length > 0) {
-                        // ローカルにあるメモ（共有で追加された直後のものなど）を基準にするMapを作成
-                        const localMap = new Map(memos.map(m => [m.id, m]));
+        if (!navigator.onLine) return;
+        try {
+            const response = await fetch(`${GAS_URL}?action=load`);
+            const serverMemos = await response.json();
+            if (Array.isArray(serverMemos)) {
+                // サーバーデータをローカルにマージするロジックを改善
+                serverMemos.forEach(sMemo => {
+                    const localIndex = memos.findIndex(l => l.id === sMemo.id);
+                    if (localIndex === -1) {
+                        // ローカルに存在しないメモなら新規追加
+                        memos.push(sMemo);
+                    } else {
+                        // すでにローカルに存在する場合、更新日時を比較してサーバー側が新しい、
+                        // またはローカル側の本文が空（反映漏れ）であれば上書きする
+                        const localMemo = memos[localIndex];
+                        const localTime = new Date(localMemo.updatedAt || 0).getTime();
+                        const serverTime = new Date(sMemo.updatedAt || 0).getTime();
                         
-                        // サーバーから届いたデータを精査してマージする
-                        serverMemos.forEach(sm => {
-                            const local = localMap.get(sm.id);
-                            // ローカルに存在しない、またはサーバーの更新日時の方が新しい場合のみ上書き
-                            if (!local || new Date(sm.updatedAt) > new Date(local.updatedAt)) {
-                                localMap.set(sm.id, sm);
-                            }
-                        });
-                        
-                        // 合体させたデータを反映
-                        memos = Array.from(localMap.values());
-                        saveAllMemos(); 
-                        showToast("サーバーからデータを同期しました");
+                        if (serverTime >= localTime || !localMemo.content) {
+                            memos[localIndex] = sMemo;
+                        }
                     }
-                }
-            } catch (e) {
-                console.log("サーバーからのデータ取得に失敗しました:", e);
-                showToast("オフラインのためローカルデータで起動しました");
+                });
+
+                // サーバー側で削除されたものをローカルからも削除（不整合を防ぐ）
+                memos = memos.filter(lMemo => serverMemos.some(sMemo => sMemo.id === lMemo.id));
+
+                saveAllMemos();
+                renderMemos();
             }
+        } catch (e) {
+            console.error("サーバーデータの読み込み・マージに失敗しました", e);
         }
-        // --- ここまで修正 ---
+    }
 
         renderMemos(); 
         initSwipeEvents();
