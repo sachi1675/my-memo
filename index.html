@@ -409,34 +409,28 @@ const sharedText = parsedUrl.searchParams.get('text') ||
         try {
             const response = await fetch(`${GAS_URL}?action=load`);
             const serverMemos = await response.json();
-            if (Array.isArray(serverMemos)) {
-                // サーバーデータをローカルにマージするロジックを改善
-                serverMemos.forEach(sMemo => {
-                    const localIndex = memos.findIndex(l => l.id === sMemo.id);
-                    if (localIndex === -1) {
-                        // ローカルに存在しないメモなら新規追加
-                        memos.push(sMemo);
-                    } else {
-                        // すでにローカルに存在する場合、更新日時を比較してサーバー側が新しい、
-                        // またはローカル側の本文が空（反映漏れ）であれば上書きする
-                        const localMemo = memos[localIndex];
-                        const localTime = new Date(localMemo.updatedAt || 0).getTime();
-                        const serverTime = new Date(sMemo.updatedAt || 0).getTime();
-                        
-                        if (serverTime >= localTime || !localMemo.content) {
-                            memos[localIndex] = sMemo;
-                        }
+            
+            // サーバーデータが空の場合は、ローカルを破壊しないよう即時終了する
+            if (!Array.isArray(serverMemos) || serverMemos.length === 0) return;
+
+            serverMemos.forEach(sMemo => {
+                const localIndex = memos.findIndex(l => l.id === sMemo.id);
+                if (localIndex === -1) {
+                    memos.push(sMemo);
+                } else {
+                    // ここで中身が空でない場合のみ更新することで「消失」を防ぐ
+                    if (sMemo.content && sMemo.content.length > 0) {
+                        memos[localIndex] = sMemo;
                     }
-                });
+                }
+            });
 
-                // サーバー側で削除されたものをローカルからも削除（不整合を防ぐ）
-                memos = memos.filter(lMemo => serverMemos.some(sMemo => sMemo.id === lMemo.id));
-
-                saveAllMemos();
-                renderMemos();
-            }
+            // 【削除】memos = memos.filter(...);  ← これを削除することで消失を防ぐ
+            
+            saveAllMemos();
+            renderMemos();
         } catch (e) {
-            console.error("サーバーデータの読み込み・マージに失敗しました", e);
+            console.error("サーバー同期失敗:", e);
         }
     }
 
