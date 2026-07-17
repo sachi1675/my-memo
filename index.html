@@ -354,8 +354,9 @@
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
 
-            // URLが綺麗になった状態でエディタを開く
+            // URLが綺麗になった状態でエディタを開き、強制的に編集モードにする
             openEditor(editingMemoId);
+            switchToEditMode();
         }
     });
 
@@ -960,7 +961,19 @@
         const bodyText = document.getElementById('editorBody').value;
         const count = bodyText.length;
         const memo = memos.find(m => m.id === editingMemoId);
-        const dateStr = memo && memo.updatedAt ? memo.updatedAt.split(' ')[0] : '今日';
+        
+        // --- ここから編集画面の上の日付を綺麗にする処理 ---
+        let dateStr = '今日';
+        if (memo && memo.updatedAt && !memo.updatedAt.includes('{{$date}}')) {
+            if (memo.updatedAt.includes('T')) {
+                // TやZが含まれる場合は綺麗にしてスラッシュ区切りにする
+                dateStr = memo.updatedAt.split('T')[0].replace(/-/g, '/');
+            } else {
+                dateStr = memo.updatedAt.split(' ')[0];
+            }
+        }
+        // --- ここまで追加 ---
+
         document.getElementById('editorCounterHeader').innerText = `文字数: ${count} | 更新日: ${dateStr}`;
     }
 
