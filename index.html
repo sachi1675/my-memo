@@ -313,7 +313,7 @@
     <div id="toast" class="toast-msg">もう一度戻るを押すと終了します</div>
 
 <script>
-    // 起動時の「Android共有機能」の受け取り処理
+    // 起動時の「Android共有機能」の受け取り処理（タイマー廃止・即時クレンジング版）
     window.addEventListener('DOMContentLoaded', () => {
         const parsedUrl = new URL(window.location.href);
         const sharedTitle = parsedUrl.searchParams.get('title') || '';
@@ -326,43 +326,36 @@
                 combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
             }
 
-            setTimeout(() => {
-                // --- 共有データから即座にメモを作成して保存する処理（URLリセット付き） ---
-                editingMemoId = Date.now(); // 新しいメモのIDを確定させる
-                const nowStr = new Date().toLocaleString('ja-JP');
-                
-                const newSharedMemo = {
-                    id: editingMemoId,
-                    title: sharedTitle,
-                    content: combinedContent,
-                    folder: currentFolder !== 'all' ? currentFolder : 'inbox', // フォルダが無ければinboxへ
-                    createdAt: nowStr,
-                    updatedAt: nowStr,
-                    lastRead: nowStr
-                };
-                
-                memos.push(newSharedMemo);
-                saveAllMemos();
-                
-                // サーバー（GAS）にも即座に送る
-                if (navigator.onLine) {
-                    fetch(GAS_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'save', memo: newSharedMemo })
-                    }).catch(e => console.log("共有データのサーバー同期エラー"));
-                }
-                
-                // 【超重要】URLの「?title=...」の部分を完全に消去して、アプリの再読み込みバグを防ぐ
-                const cleanUrl = window.location.origin + window.location.pathname;
-                window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
-
-                // エディタを開いて中身をセットし、プレビューモードで表示
-                openEditor(editingMemoId);
-                // --- ここまで修正 ---
-            }, 300);
-
+            // タイマーを待たずに、その場（即時）でIDを発行してメモを作成
+            editingMemoId = Date.now();
+            const nowStr = new Date().toLocaleString('ja-JP');
+            
+            const newSharedMemo = {
+                id: editingMemoId,
+                title: sharedTitle,
+                content: combinedContent,
+                folder: currentFolder !== 'all' ? currentFolder : 'inbox',
+                createdAt: nowStr,
+                updatedAt: nowStr,
+                lastRead: nowStr
+            };
+            
+            memos.push(newSharedMemo);
+            saveAllMemos();
+            
+            if (navigator.onLine) {
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'save', memo: newSharedMemo })
+                }).catch(e => console.log("共有データのサーバー同期エラー"));
+            }
+            
+            // 割り込みを防ぐため、一番最初にURLの「?title=...」を完全に消し去る
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
+
+            // URLが綺麗になった状態でエディタを開く
+            openEditor(editingMemoId);
         }
     });
 
