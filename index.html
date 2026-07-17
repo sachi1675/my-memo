@@ -405,38 +405,30 @@ const sharedText = parsedUrl.searchParams.get('text') ||
     }
 
     async function loadFromServer() {
-        if (!navigator.onLine) return;
+        // オフラインなら即座に一覧を表示して終了
+        if (!navigator.onLine) {
+            renderMemos();
+            return;
+        }
+
         try {
             const response = await fetch(`${GAS_URL}?action=load`);
-            const serverMemos = await response.json();
-            
-            // サーバーデータが空の場合は、ローカルを破壊しないよう即時終了する
-            if (!Array.isArray(serverMemos) || serverMemos.length === 0) return;
-
-            serverMemos.forEach(sMemo => {
-                const localIndex = memos.findIndex(l => l.id === sMemo.id);
-                if (localIndex === -1) {
-                    memos.push(sMemo);
-                } else {
-                    // ここで中身が空でない場合のみ更新することで「消失」を防ぐ
-                    if (sMemo.content && sMemo.content.length > 0) {
-                        memos[localIndex] = sMemo;
-                    }
+            if (response.ok) {
+                const serverMemos = await response.json();
+                
+                // サーバーからデータが返ってきた場合のみ、安全に更新する
+                if (Array.isArray(serverMemos) && serverMemos.length > 0) {
+                    memos = serverMemos; // サーバーのデータが正義
+                    saveAllMemos();
+                    showToast("同期完了");
                 }
-            });
-
-            // 【削除】memos = memos.filter(...);  ← これを削除することで消失を防ぐ
-            
-            saveAllMemos();
-            renderMemos();
+            }
         } catch (e) {
-            console.error("サーバー同期失敗:", e);
+            console.error("サーバー読み込みエラー:", e);
         }
-    }
 
-        renderMemos(); 
-        initSwipeEvents();
-        initDragHandleEvents();
+        // 読み込みが成功しても失敗しても、最後に必ず一覧を表示する
+        renderMemos();
     }
 
     // スライドしてサイドバーを閉じる
