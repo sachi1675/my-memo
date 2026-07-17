@@ -326,11 +326,16 @@
                 combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
             }
 
-            setTimeout(() => {
+                        setTimeout(() => {
                 openEditor();
                 document.getElementById('editorTitle').value = sharedTitle;
                 document.getElementById('editorBody').value = combinedContent;
-                onEditorInput();
+                
+                // --- ここから自動保存と日付セットの処理を追加 ---
+                // 共有から入ってきた時点で、自動的に現在の日時でメモの枠組みを作る
+                isChanged = true;
+                saveMemo();
+                // --- ここまで追加 ---
             }, 300);
 
             const cleanUrl = window.location.origin + window.location.pathname;
@@ -685,8 +690,23 @@
                 const regex = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
                 return text.replace(regex, '<mark style="background: #fff200;">$1</mark>');
             };
-            let displayTitle = memo.title && memo.title.trim() ? memo.title : (memo.content.split('\n')[0] || '無題のメモ');
-            const displayDate = memo.updatedAt ? memo.updatedAt.split(' ')[0] : '日付不明';
+                        let displayTitle = memo.title && memo.title.trim() ? memo.title : (memo.content.split('\n')[0] || '無題のメモ');
+            
+            // --- ここから日付のクレンジング処理を追加 ---
+            let displayDate = '日付不明';
+            if (memo.updatedAt && !memo.updatedAt.includes('{{$date}}')) {
+                // Tが入る形式（ISO形式）の場合は、日付部分だけをハイフン区切りで抜き出す
+                if (memo.updatedAt.includes('T')) {
+                    displayDate = memo.updatedAt.split('T')[0];
+                } else {
+                    // 通常の「2026/7/17 12:34:56」のような形式なら、スペースで区切って日付だけにする
+                    displayDate = memo.updatedAt.split(' ')[0];
+                }
+            } else {
+                // 日付が壊れているか初期値のままなら、今日の数字を入れておく
+                displayDate = new Date().toLocaleDateString('ja-JP');
+            }
+            // --- ここまで追加 ---
             
             // e. 並び替え用の「▲」「▼」ボタン（フォルダ内かつ検索中でない場合のみ）
             let orderBtnHtml = '';
