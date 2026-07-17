@@ -377,6 +377,28 @@
     async function loadFromServer() {
         initHistoryState();
         renderStructure();
+        
+        // --- ここからGASからの読み込み処理を追加 ---
+        if (navigator.onLine) {
+            try {
+                // GASにデータをちょうだいとリクエストを送る
+                const response = await fetch(GAS_URL);
+                if (response.ok) {
+                    const serverMemos = await response.json();
+                    // もしサーバーにデータがあれば、スマホのデータ（memos）を上書きする
+                    if (Array.isArray(serverMemos) && serverMemos.length > 0) {
+                        memos = serverMemos;
+                        saveAllMemos(); // スマホのローカル保存（localStorage）も最新にする
+                        showToast("サーバーからデータを同期しました");
+                    }
+                }
+            } catch (e) {
+                console.log("サーバーからのデータ取得に失敗しました:", e);
+                showToast("オフラインのためローカルデータで起動しました");
+            }
+        }
+        // --- ここまで追加 ---
+
         renderMemos(); 
         initSwipeEvents();
         initDragHandleEvents();
