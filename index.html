@@ -1263,68 +1263,57 @@ const sharedText = parsedUrl.searchParams.get('text') ||
 
     // スマホの「戻る」ボタン/ジェスチャー処理
     window.addEventListener('popstate', (e) => {
-        const state = e.state;
         const editorModal = document.getElementById('editorModal');
         const folderModal = document.getElementById('folderModal');
         const infoModal = document.getElementById('infoModalOverlay');
-        const searchInput = document.getElementById('search');
-        const checkboxes = document.querySelectorAll('.memo-checkbox:checked');
+        const confirmOverlay = document.getElementById('customConfirmOverlay');
 
-        if (checkboxes.length > 0) {
-            clearBulkSelection();
-            history.pushState({ type: 'home_active' }, null, '');
+        // 1. 確認ダイアログが開いているなら、閉じるだけで終了
+        if (confirmOverlay.classList.contains('open')) {
+            confirmOverlay.classList.remove('open');
             return;
         }
 
+        // 2. 詳細モーダルが開いているなら閉じる
         if (infoModal.classList.contains('open')) {
             exitInfoVisuals();
             return;
         }
 
-        if (editorModal.classList.contains('open')) {
-            const confirmOverlay = document.getElementById('customConfirmOverlay');
-            
-            if (confirmOverlay.classList.contains('open')) {
-                confirmOverlay.classList.remove('open');
-                history.pushState({ type: 'edit_mode_active' }, null, ''); 
-                return;
-            }
-
-            if (document.getElementById('editArea').style.display === 'flex') {
-                if (isChanged) {
-                    confirmOverlay.classList.add('open');
-                    history.pushState({ type: 'edit_mode_active' }, null, ''); 
-                } else {
-                    if (!editingMemoId) {
-                        exitEditorVisuals();
-                    } else {
-                        switchToPreviewMode();
-                    }
-                }
-                return;
-            }
-            
-            exitEditorVisuals();
-            return;
-        }
-
+        // 3. フォルダ管理が開いているなら閉じる
         if (folderModal.classList.contains('open')) {
             exitFolderVisuals();
             return;
         }
 
+        // 4. エディタが開いている場合
+        if (editorModal.classList.contains('open')) {
+            if (document.getElementById('editArea').style.display === 'flex') {
+                // 編集モードならプレビューへ戻す
+                if (!editingMemoId) {
+                    exitEditorVisuals();
+                } else {
+                    switchToPreviewMode();
+                }
+            } else {
+                // プレビューモードならエディタ全体を閉じる
+                exitEditorVisuals();
+            }
+            return;
+        }
+
+        // 5. 検索中ならクリア
         if (isSearchActiveState) {
             isSearchActiveState = false;
-            if (searchInput) {
-                searchInput.value = '';
-            }
+            document.getElementById('search').value = '';
             renderMemos();
             return;
         }
 
+        // 6. それ以外（トップ画面）なら終了確認
         const now = Date.now();
         if (now - lastBackPressTime < 2000) {
-            showToast("終了します");
+            window.close(); // アプリを閉じる
         } else {
             lastBackPressTime = now;
             showToast("もう一度戻るを押すと終了します");
