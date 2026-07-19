@@ -199,7 +199,6 @@
 
         <div id="optionsMenu" style="display:none; position:absolute; top:50px; right:10px; background:white; border:1px solid #ccc; z-index:100; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.2); width: 200px;">
             <div id="menuOptEdit" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="switchToEditMode()">編集</div>
-            <div id="menuOptSearch" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="togglePreviewSearch()">このメモ内を検索</div>
             
             <div id="menuOptFolderArea" style="padding:10px; border-bottom:1px solid #eee; background:#f9f9f9;">
                 <span style="font-size: 12px; color: #666; font-weight:bold;">フォルダ変更:</span>
@@ -1271,112 +1270,123 @@
     }
 
     // ① スマホの「戻る」ボタン/ジェスチャー処理（Opera最適化・完全版）
-    window.addEventListener('popstate', (e) => {
-        const editorModal = document.getElementById('editorModal');
-        const folderModal = document.getElementById('folderModal');
-        const infoModal = document.getElementById('infoModalOverlay');
-        const confirmOverlay = document.getElementById('customConfirmOverlay');
+window.addEventListener('popstate', (e) => {
+    const sidebar = document.getElementById('sidebar');
+    const optionsMenu = document.getElementById('optionsMenu');
+    const confirmOverlay = document.getElementById('customConfirmOverlay');
+    const infoModal = document.getElementById('infoModalOverlay');
+    const folderModal = document.getElementById('folderModal');
+    const bulkMoveModal = document.getElementById('folderSelectModalOverlay');
+    const editorModal = document.getElementById('editorModal');
 
-        // 1. 確認ダイアログが開いているなら閉じて終了
-        if (confirmOverlay.classList.contains('open')) {
-            confirmOverlay.classList.remove('open');
-            return;
-        }
+    // 1. 確認ダイアログが開いている場合は、最優先でダイアログを閉じる
+    if (confirmOverlay.classList.contains('open')) {
+        confirmOverlay.classList.remove('open');
+        return;
+    }
 
-        // 2. 詳細モーダル・フォルダ管理が開いているなら閉じて終了
-        if (infoModal.classList.contains('open')) {
-            exitInfoVisuals();
-            return;
-        }
-        if (folderModal.classList.contains('open')) {
-            exitFolderVisuals();
-            return;
-        }
+    // 2. 「︙」メニューが開いている場合はメニューを閉じる
+    if (optionsMenu.style.display === 'block') {
+        optionsMenu.style.display = 'none';
+        return;
+    }
 
-        // 3. エディタが開いている場合
-        if (editorModal.classList.contains('open')) {
-            // 編集モードならプレビューへ戻す
-            if (document.getElementById('editArea').style.display === 'flex') {
+    // 3. その他のサブモーダルを閉じる
+    if (infoModal.classList.contains('open')) { infoModal.classList.remove('open'); return; }
+    if (folderModal.classList.contains('open')) { folderModal.classList.remove('open'); renderMemos(); return; }
+    if (bulkMoveModal.classList.contains('open')) { bulkMoveModal.classList.remove('open'); return; }
+    if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        document.getElementById('overlay').classList.remove('show');
+        return;
+    }
+
+    // 4. 詳細・編集画面が開いている場合
+    if (editorModal.classList.contains('open')) {
+        // 現在「編集モード」の場合
+        if (document.getElementById('editArea').style.display === 'flex') {
+            if (isChanged) {
+                // 変更があれば戻るのをストップして確認ダイアログを出す（履歴を1つ補填）
+                history.pushState({ type: 'edit_mode' }, null, '');
+                confirmOverlay.classList.add('open');
+            } else {
+                // 変更がなければプレビュー（詳細画面）に戻す
                 document.getElementById('editArea').style.display = 'none';
                 document.getElementById('previewArea').style.display = 'block';
                 document.getElementById('previewDragHandle').style.display = 'flex';
                 document.getElementById('headerSaveBtn').style.display = 'none';
                 document.getElementById('viewModeHeader').innerText = 'メモ詳細';
-                
-                document.getElementById('menuOptFolderArea').style.display = 'block'; 
-                document.getElementById('menuOptDuplicate').style.display = 'block'; 
-                document.getElementById('menuOptInfo').style.display = 'block'; 
-                document.getElementById('menuOptDelete').style.display = 'block'; 
-                document.getElementById('menuOptReplaceArea').style.display = 'none';
-                document.getElementById('menuOptEdit').style.display = 'block';
                 highlightPreviewText();
-                return;
-            } else {
-                // プレビューモードならエディタ全体を閉じる
-                exitEditorVisuals();
-                return;
             }
-        }
-
-        // 4. 検索中ならクリア
-        if (isSearchActiveState) {
-            isSearchActiveState = false;
-            document.getElementById('search').value = '';
-            renderMemos();
+            return;
+        } else {
+            // 現在「プレビューモード」なら、安全にトップ一覧に戻る
+            exitEditorVisuals();
             return;
         }
+    }
 
-        // 5. トップ画面での終了確認（Operaでも確実にトーストを出す仕組み）
-        const now = Date.now();
-        if (now - lastBackPressTime < 2000) {
-            window.close();
-        } else {
-            lastBackPressTime = now;
-            showToast("もう一度戻るを押すと終了します");
-            // ユーザー操作の戻るを1回消費したため、次の「戻る」を捕まえるためにスタックを1つ補填
-            history.pushState({ type: 'home_active' }, null, '');
-        }
-    });
+    // 5. 検索中ならクリア
+    if (isSearchActiveState) {
+        isSearchActiveState = false;
+        document.getElementById('search').value = '';
+        renderMemos();
+        return;
+    }
+
+    // 6. トップ画面での終了確認
+    const now = Date.now();
+    if (now - lastBackPressTime < 2000) {
+        window.close();
+    } else {
+        lastBackPressTime = now;
+        showToast("もう一度戻るを押すと終了します");
+        history.pushState({ type: 'home' }, null, '');
+    }
+});
 
     // ドラッグハンドルから検索バーを開閉するイベント登録
-    function initDragHandleEvents() {
-        const handle = document.getElementById('previewDragHandle');
-        const searchArea = document.getElementById('previewSearchArea');
-        
-        if (!handle || !searchArea) return;
+function initDragHandleEvents() {
+    const handle = document.getElementById('previewDragHandle');
+    const searchArea = document.getElementById('previewSearchArea');
+    
+    if (!handle || !searchArea) return;
 
-        handle.onclick = (e) => {
-            e.preventDefault();
-            togglePreviewSearch();
-        };
+    // タップでの開閉
+    handle.onclick = (e) => {
+        e.preventDefault();
+        togglePreviewSearch();
+    };
 
-        let startY = 0;
-        let isDragging = false;
+    let startY = 0;
+    let isDragging = false;
 
-        handle.addEventListener('touchstart', (e) => {
-            startY = e.touches[0].clientX; 
-            isDragging = true;
-        }, { passive: true });
+    handle.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+    }, { passive: true });
 
-        handle.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            const currentY = e.touches[0].clientY;
-            const diffY = currentY - startY;
+    handle.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const currentY = e.touches[0].clientY;
+        const diffY = currentY - startY;
 
-            if (diffY > 20 && !searchArea.classList.contains('search-open')) {
-                searchArea.classList.add('search-open');
-                isDragging = false;
-            }
-            else if (diffY < -20 && searchArea.classList.contains('search-open')) {
-                searchArea.classList.remove('search-open');
-                isDragging = false;
-            }
-        }, { passive: true });
-
-        handle.addEventListener('touchend', () => {
+        // 上から下に20px以上引っ張ったら検索バーを開く
+        if (diffY > 20 && !searchArea.classList.contains('search-open')) {
+            searchArea.classList.add('search-open');
             isDragging = false;
-        });
-    }
+        }
+        // 下から上に20px以上押し上げたら検索バーを閉じる
+        else if (diffY < -20 && searchArea.classList.contains('search-open')) {
+            searchArea.classList.remove('search-open');
+            isDragging = false;
+        }
+    }, { passive: true });
+
+    handle.addEventListener('touchend', () => {
+        isDragging = false;
+    });
+}
 
     // ⑤ 最上部で退避しておいた共有データを安全に差し込む関数
     async function handleSharedData() {
@@ -1422,7 +1432,10 @@
     window.addEventListener('load', async () => {
         // 履歴状態のベースラインを規定
         initHistoryState();
+    initSwipeEvents();
 
+    initDragHandleEvents();
+        
         // 1. サーバー/ローカルからデータを読み込み、画面一覧を構築
         await loadFromServer();
         
