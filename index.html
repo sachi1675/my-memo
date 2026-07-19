@@ -184,6 +184,8 @@
             </div>
         </header>
         <div class="memo-list" id="memoList"></div>
+        <!-- 💡 クリップボードから作成するボタンをプラスボタンの横に追加 -->
+        <button class="fab clipboard-fab" onclick="createMemoFromClipboard()" style="right: 90px; background-color: #5c7285;">📋</button>
         <button class="fab" onclick="openEditor()">+</button>
     </div>
 
@@ -1544,6 +1546,48 @@ function initDragHandleEvents() {
                 .catch(err => console.log('Service Worker 登録失敗...', err));
         }
     });
+// 💡 クリップボードの文字を読み取って、自動で新規メモを立ち上げる関数
+async function createMemoFromClipboard() {
+    try {
+        // スマホのクリップボードからテキストを取得
+        const text = await navigator.clipboard.readText();
+        
+        if (!text || text.trim() === "") {
+            showToast("クリップボードが空っぽです");
+            return;
+        }
+
+        // 1行目をタイトル、残りを本文に分ける（共有機能と同じ綺麗な分け方）
+        const lines = text.trim().split('\n');
+        const autoTitle = lines[0].substring(0, 30); // 最大30文字
+        const autoContent = text;
+
+        // 新規作成モードでエディタを開く（editingMemoIdをnullにする）
+        editingMemoId = null; 
+        isChanged = true; // 変更フラグを立てる
+
+        // エディタの各エリアをリセットして、コピーした文字を流し込む
+        document.getElementById('editorTitle').value = autoTitle;
+        document.getElementById('editorBody').value = autoContent;
+
+        // 画面の表示を「編集モード」に切り替える
+        editorModal.classList.add('open');
+        document.getElementById('editArea').style.display = 'flex';
+        document.getElementById('previewArea').style.display = 'none';
+        document.getElementById('previewDragHandle').style.display = 'none';
+        document.getElementById('headerSaveBtn').style.display = 'block';
+        document.getElementById('viewModeHeader').innerText = '新規メモ作成';
+
+        // 文字数カウンターを更新
+        onEditorInput(); 
+        
+        showToast("クリップボードから文字を読み込みました！");
+
+    } catch (err) {
+        console.error("クリップボードの読み取り失敗:", err);
+        showToast("貼り付け権限が拒否されたか、ブラウザが未対応です");
+    }
+}
 </script>
 
 </body>
