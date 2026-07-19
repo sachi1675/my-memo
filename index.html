@@ -875,7 +875,10 @@ const sharedText = parsedUrl.searchParams.get('text') ||
 
     function switchToPreviewMode() {
         document.getElementById('optionsMenu').style.display = 'none';
-
+        // プレビューに戻る際は、履歴をスタックに追加せず「プレビューモード」へ戻す
+        history.replaceState({ type: 'preview_mode_active' }, null, '');
+        
+        // ...（以下、既存の処理をそのまま継続）
         document.getElementById('editArea').style.display = 'none';
         document.getElementById('previewArea').style.display = 'block';
         document.getElementById('previewDragHandle').style.display = 'flex';
@@ -920,9 +923,8 @@ const sharedText = parsedUrl.searchParams.get('text') ||
         document.getElementById('menuOptEdit').style.display = 'none';
         
         updateCharCount();
-        if (history.state?.type !== 'edit_mode_active') {
-            history.replaceState({ type: 'edit_mode_active' }, null, '');
-        }
+        // 履歴をスタックに追加せず、現在の状態を「編集モード」としてマークするだけに留めます
+        history.replaceState({ type: 'edit_mode_active' }, null, '');
     }
 
     function closeEditor() {
