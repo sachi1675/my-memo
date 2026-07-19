@@ -30,10 +30,10 @@
         .folder-sub { padding-left: 15px; }
 
         /* メイン画面 */
-        .main-content { width: 100%; max-width: 100%; display: flex; flex-direction: column; height: 100%; position: relative; }
+        .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; width: 100%; max-width: 100%; overflow: hidden; }
         header { background: #fff; padding: 10px 15px; display: flex; align-items: center; border-bottom: 1px solid #ddd; gap: 10px; }
         .menu-btn { font-size: 24px; cursor: pointer; background: none; border: none; padding: 5px; color: var(--text-color); }
-        .search-bar { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 20px; font-size: 14px; outline: none; }
+        .search-bar { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 20px; font-size: 14px; outline: none; min-width: 0; }
         
         /* 一括操作エリア */
         .bulk-action-area { display: flex; gap: 5px; flex-shrink: 0; }
