@@ -1547,6 +1547,7 @@ function initDragHandleEvents() {
         }
     });
 // 💡 一覧への反映と安全装置を完全に連動させた「手動ペースト連動窓口」
+// 💡 アプリ本来の新規作成機能をそのまま使って、安全に取り込む関数
 function createMemoFromClipboard() {
     const text = prompt("【マイメモ帳】コピーしたテキストをここに貼り付けてください（長押し⇒貼り付け）");
     
@@ -1560,41 +1561,21 @@ function createMemoFromClipboard() {
     const autoTitle = lines[0].substring(0, 30);
     const autoContent = lines.slice(1).join('\n').trim();
 
-    // 💡【重要】トップページの一覧や保存処理が正しく認識できる「メモの枠組み」を生成する
-    const nowStr = new Date().toLocaleString('ja-JP'); // 現在の日時
-    currentMemo = {
-        id: "memo_" + Date.now(), // 一意のID
-        title: autoTitle,
-        body: autoContent,
-        folder: currentFolder === 'all' ? '未分類' : currentFolder, // 今開いているフォルダを自動割り当て
-        createdAt: nowStr,
-        updatedAt: nowStr
-    };
+    // 💡【ここが重要】＋ボタンを押したときと「完全に同じ処理」をここで1回実行する
+    // これにより、アプリ側のデータ作成や画面を開く処理、戻るボタンの安全装置がすべて自動で正しくセットされます
+    if (typeof openEditor === 'function') {
+        openEditor();
+    }
 
-    editingMemoId = null; // 新規作成モード
-    isChanged = true;     // 変更フラグを立てる
-
-    // エディタの入力欄に文字をセット
+    // 完全に準備が整った入力欄に、コピーした文字を流し込む
     document.getElementById('editorTitle').value = autoTitle;
     document.getElementById('editorBody').value = autoContent;
 
-    // スマホの戻るボタン対策（履歴にエディタの状態を記録）
-    if (typeof pushHistoryState === 'function') {
-        pushHistoryState({ mode: 'edit', id: null });
-    } else if (window.history && window.history.pushState) {
-        window.history.pushState({ mode: 'edit' }, null, null);
+    // 文字数やアプリの内部データを更新させる
+    if (typeof onEditorInput === 'function') {
+        onEditorInput();
     }
-
-    // エディタ画面を起動
-    editorModal.classList.add('open');
-    document.getElementById('editArea').style.display = 'flex';
-    document.getElementById('previewArea').style.display = 'none';
-    document.getElementById('previewDragHandle').style.display = 'none';
-    document.getElementById('headerSaveBtn').style.display = 'block';
-    document.getElementById('viewModeHeader').innerText = '新規メモ作成';
-
-    // 文字数や見た目を更新
-    onEditorInput(); 
+    
     showToast("テキストを取り込みました！");
 }
 </script>
