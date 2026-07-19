@@ -1341,18 +1341,31 @@ window.addEventListener('popstate', (e) => {
     if (editorModal.classList.contains('open')) {
         // 現在「編集モード」の場合
         if (document.getElementById('editArea').style.display === 'flex') {
-            if (isChanged) {
-                // 変更があれば戻るのをストップして確認ダイアログを出す（履歴を1つ補填）
-                history.pushState({ type: 'edit_mode' }, null, '');
-                confirmOverlay.classList.add('open');
+            
+            // 💡【修正】既存メモの編集（editingMemoIdがある）か、新規作成（null）かで分岐
+            if (editingMemoId === null) {
+                // ＋ボタンからの新規作成時：何も書かずに戻るなら一覧へ戻る
+                if (!isChanged) {
+                    exitEditorVisuals();
+                } else {
+                    // 何か書いている場合は確認ダイアログを出す
+                    history.pushState({ type: 'edit_mode' }, null, '');
+                    confirmOverlay.classList.add('open');
+                }
             } else {
-                // 変更がなければプレビュー（詳細画面）に戻す
-                document.getElementById('editArea').style.display = 'none';
-                document.getElementById('previewArea').style.display = 'block';
-                document.getElementById('previewDragHandle').style.display = 'flex';
-                document.getElementById('headerSaveBtn').style.display = 'none';
-                document.getElementById('viewModeHeader').innerText = 'メモ詳細';
-                highlightPreviewText();
+                // 既存メモの編集時：戻るキーで詳細（プレビュー）画面に戻す
+                if (isChanged) {
+                    history.pushState({ type: 'edit_mode' }, null, '');
+                    confirmOverlay.classList.add('open');
+                } else {
+                    // 変更がなければ詳細画面（プレビュー）に戻す
+                    document.getElementById('editArea').style.display = 'none';
+                    document.getElementById('previewArea').style.display = 'block';
+                    document.getElementById('previewDragHandle').style.display = 'flex';
+                    document.getElementById('headerSaveBtn').style.display = 'none';
+                    document.getElementById('viewModeHeader').innerText = 'メモ詳細';
+                    highlightPreviewText();
+                }
             }
             return;
         } else {
