@@ -1510,6 +1510,17 @@ function initDragHandleEvents() {
                 .catch(err => console.log('Service Worker 登録失敗...', err));
         }
     });
+    
+// 💡 SWからのメッセージ（共有データ）を受け取るための待ち受け
+navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SHARED_DATA') {
+        // 届いたデータをストレージに保存
+        localStorage.setItem('pwa_shared_memo_data', JSON.stringify(event.data.data));
+        
+        // データを保存したら、強制リロードして編集画面を開かせる
+        window.location.reload(); 
+    }
+});
 </script>
 
 </body>
