@@ -37,8 +37,31 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// ③ フェッチ時：キャッシュがあればそれを返し、なければネットから取得
+// ③ フェッチ時：共有データをPOSTで受け取ったらアプリに転送する
 self.addEventListener('fetch', (event) => {
+    // 共有データがPOSTで送られてきた場合
+    if (event.request.method === 'POST' && event.request.url.includes('./')) {
+        event.respondWith((async () => {
+            const formData = await event.request.formData();
+            const data = {
+                title: formData.get('title'),
+                content: formData.get('text') || formData.get('url'),
+                url: formData.get('url')
+            };
+
+            // アプリ本体（クライアント）を探してデータを送信
+            const clients = await self.clients.matchAll();
+            for (const client of clients) {
+                client.postMessage({ type: 'SHARED_DATA', data });
+            }
+
+            // 処理後、トップページへリダイレクト
+            return Response.redirect('./');
+        })());
+        return;
+    }
+
+    // 通常のフェッチ処理
     event.respondWith(
         caches.match(event.request).then((response) => {
             return response || fetch(event.request);
