@@ -320,6 +320,33 @@
     <div id="toast" class="toast-msg">もう一度戻るを押すと終了します</div>
 
 <script>
+    // ⑤ 共有データの消失を防ぐため、スクリプトが読み込まれた瞬間に最速でパラメータを退避
+    let savedSharedData = null;
+    try {
+        const parsedUrl = new URL(window.location.href);
+        const sharedTitle = parsedUrl.searchParams.get('title') || '';
+        const sharedText = parsedUrl.searchParams.get('text') || 
+                           parsedUrl.searchParams.get('body') || 
+                           parsedUrl.searchParams.get('content') || '';
+        const sharedUrl = parsedUrl.searchParams.get('url') || '';
+
+        if (sharedText || sharedUrl || sharedTitle) {
+            let combinedContent = sharedText;
+            if (sharedUrl) combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
+            
+            savedSharedData = {
+                title: sharedTitle,
+                content: combinedContent
+            };
+            
+            // パラメータが奪われる前に最速でURLをクレンジング
+            const cleanUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({ type: 'home_active' }, document.title, cleanUrl);
+        }
+    } catch (e) {
+        console.error("共有パラメータの最速取得に失敗:", e);
+    }
+
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwS0rFOUFkEGvgzG4vEfjipAoRgbK9LRLwMh1Bxp8je7UCtnNAvpaUkN-rLAOhSKYN6/exec";
     
     // データの読み込み
@@ -354,14 +381,12 @@
         localStorage.setItem('my_folder_orders_v4', JSON.stringify(folderOrders));
     }
 
-    // 初期化と履歴の強制設定（戻るボタンが機能するようにスタックを確保）
+    // ① 起動時の自動 pushState は Opera で無視されるため廃止
     function initHistoryState() {
-        window.history.replaceState({ type: 'home_base' }, null, '');
-        window.history.pushState({ type: 'home_active' }, null, '');
+        window.history.replaceState({ type: 'home_active' }, null, '');
     }
 
     async function loadFromServer() {
-        // オフラインなら即座に一覧を表示して終了
         if (!navigator.onLine) {
             renderMemos();
             return;
@@ -371,10 +396,8 @@
             const response = await fetch(`${GAS_URL}?action=load`);
             if (response.ok) {
                 const serverMemos = await response.json();
-                
-                // サーバーからデータが返ってきた場合のみ、安全に更新する
                 if (Array.isArray(serverMemos) && serverMemos.length > 0) {
-                    memos = serverMemos; // サーバーのデータが正義
+                    memos = serverMemos; 
                     saveAllMemos();
                     showToast("同期完了");
                 }
@@ -383,8 +406,8 @@
             console.error("サーバー読み込みエラー:", e);
         }
 
-        renderStructure(); // 構造（フォルダ一覧など）を再構築してリフレッシュ
-        renderMemos();     // メモ一覧を表示
+        renderStructure(); 
+        renderMemos();     
     }
 
     // スライドしてサイドバーを閉じる
@@ -629,17 +652,14 @@
         list.innerHTML = '';
         let filtered = [...memos]; 
         
-        // フォルダ絞り込み
         if (currentFolder !== 'all') { 
             filtered = filtered.filter(m => m.folder === currentFolder); 
         }
         
-        // 検索絞り込み
         if (searchQuery) { 
             filtered = filtered.filter(m => (m.title && m.title.toLowerCase().includes(searchQuery)) || (m.content && m.content.toLowerCase().includes(searchQuery))); 
         }
         
-        // e. 並び順の決定
         if (currentFolder !== 'all' && folderOrders[currentFolder]) {
             const orderArray = folderOrders[currentFolder];
             filtered.sort((a, b) => {
@@ -669,16 +689,13 @@
                 return text.replace(regex, '<mark style="background: #fff200;">$1</mark>');
             };
             
-            // ⑤ 共有で持ってきたデータガード
             const memoContent = memo.content || memo.body || '';
             let displayTitle = memo.title && memo.title.trim() ? memo.title : (memoContent.split('\n')[0] || '無題のメモ');
             if (!displayTitle || !displayTitle.trim()) { displayTitle = '無題のメモ'; }
             
-            // --- 日付のクレンジング処理 ---
             let displayDate = '日付不明';
             if (memo.updatedAt && !memo.updatedAt.includes('{{$date}}')) {
                 if (memo.updatedAt.includes('T')) {
-                    // UTCからJSTへ安全に補正して抽出
                     const d = new Date(memo.updatedAt);
                     if(!isNaN(d.getTime())) {
                         displayDate = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
@@ -692,7 +709,6 @@
                 displayDate = new Date().toLocaleDateString('ja-JP');
             }
 
-            // e. 並び替え用の「▲」「▼」ボタン
             let orderBtnHtml = '';
             if (currentFolder !== 'all' && !searchQuery) {
                 orderBtnHtml = `
@@ -804,15 +820,18 @@
         showToast("選択したメモを移動しました");
     }
 
+    // ① ユーザーがタップしてエディタ（またはプレビュー）を開く瞬間に初めて pushState を実行
     function openEditor(id = null) {
         document.getElementById('optionsMenu').style.display = 'none';
         const modal = document.getElementById('editorModal');
         modal.classList.add('open');
         isChanged = false;
         
-        // ⑥ 置換用インデックスの初期化
         currentMatchIndex = -1;
         currentMatchSearchTerm = "";
+
+        // Opera対策: ユーザー操作に直結するここで、初めて「詳細画面が開いた」履歴を安全に積む
+        history.pushState({ type: 'preview_mode_active' }, null, '');
 
         if (id) {
             editingMemoId = id;
@@ -836,13 +855,6 @@
 
     function switchToPreviewMode() {
         document.getElementById('optionsMenu').style.display = 'none';
-        
-        // ① プレビューモードを表すスタックを積み、戻る挙動の辻褄を合わせる
-        if (history.state?.type !== 'preview_mode_active' && history.state?.type !== 'modal_open') {
-            history.pushState({ type: 'preview_mode_active' }, null, '');
-        } else {
-            history.replaceState({ type: 'preview_mode_active' }, null, '');
-        }
         
         document.getElementById('editArea').style.display = 'none';
         document.getElementById('previewArea').style.display = 'block';
@@ -889,7 +901,7 @@
         
         updateCharCount();
         
-        // ① 編集モードに入った独自のスタックを積む
+        // ① プレビューからさらに「編集モード」へ入った履歴を積む
         history.pushState({ type: 'edit_mode_active' }, null, '');
     }
 
@@ -908,7 +920,7 @@
         if (document.getElementById('editArea').style.display === 'flex' && isChanged) {
             confirmOverlay.classList.add('open');
         } else {
-            history.back(); // popstateが作動して綺麗に閉じます
+            history.back(); 
         }
     }
 
@@ -1090,21 +1102,18 @@
         }
     }
 
-    // ④ 詳細情報モーダルの表示（時間ズレ完全クレンジング版）
     function showInfoModal() {
         document.getElementById('optionsMenu').style.display = 'none';
         if (!editingMemoId) return;
         const memo = memos.find(m => m.id === editingMemoId);
         if (!memo) return;
 
-        // TやZが含まれるUTCタイムスタンプを正しく日本時間(+9時間)にする完璧なコンバーター
         const cleanDate = (dateStr) => {
             if (!dateStr || dateStr.includes('{{$date}}')) return '日付不明';
             
             if (dateStr.includes('T')) {
                 const d = new Date(dateStr);
                 if (!isNaN(d.getTime())) {
-                    // 日本時間(JST)のフォーマットに手動組み立て
                     const Y = d.getFullYear();
                     const M = String(d.getMonth() + 1).padStart(2, '0');
                     const D = String(d.getDate()).padStart(2, '0');
@@ -1142,7 +1151,6 @@
         document.getElementById('infoModalOverlay').classList.remove('open');
     }
 
-    // ⑥ 置換機能（すべて置換 ＆ 選べる置換 拡張版）
     function replaceText() {
         const findVal = document.getElementById('findText').value;
         const replaceVal = document.getElementById('replaceText').value;
@@ -1156,15 +1164,12 @@
             return;
         }
 
-        // ユーザーにすべて置換するか確認を促す(Word風システム)
         if (confirm("見つかったすべての箇所を一括で置換しますか？\n(「キャンセル」を押すと1件ずつ選択して置換できます)")) {
-            // すべて置換
             bodyInput.value = text.split(findVal).join(replaceVal);
             onEditorInput();
             showToast("すべての置換を完了しました");
             currentMatchIndex = -1;
         } else {
-            // 選べる置換 (1件ずつ選択)
             if (currentMatchSearchTerm !== findVal) {
                 currentMatchSearchTerm = findVal;
                 currentMatchIndex = 0;
@@ -1265,7 +1270,7 @@
         setTimeout(() => { toast.style.display = 'none'; }, 2000);
     }
 
-    // ① スマホの「戻る」ボタン/ジェスチャー処理（完全修正版）
+    // ① スマホの「戻る」ボタン/ジェスチャー処理（Opera最適化・完全版）
     window.addEventListener('popstate', (e) => {
         const editorModal = document.getElementById('editorModal');
         const folderModal = document.getElementById('folderModal');
@@ -1305,14 +1310,12 @@
                 document.getElementById('menuOptReplaceArea').style.display = 'none';
                 document.getElementById('menuOptEdit').style.display = 'block';
                 highlightPreviewText();
-                
-                // 履歴状態を上書きして維持
-                history.pushState({ type: 'preview_mode_active' }, null, '');
+                return;
             } else {
-                // プレビューモードならエディタ全体を閉じてトップに戻る
+                // プレビューモードならエディタ全体を閉じる
                 exitEditorVisuals();
+                return;
             }
-            return;
         }
 
         // 4. 検索中ならクリア
@@ -1323,13 +1326,14 @@
             return;
         }
 
-        // 5. トップ画面なら終了確認
+        // 5. トップ画面での終了確認（Operaでも確実にトーストを出す仕組み）
         const now = Date.now();
         if (now - lastBackPressTime < 2000) {
             window.close();
         } else {
             lastBackPressTime = now;
             showToast("もう一度戻るを押すと終了します");
+            // ユーザー操作の戻るを1回消費したため、次の「戻る」を捕まえるためにスタックを1つ補填
             history.pushState({ type: 'home_active' }, null, '');
         }
     });
@@ -1374,68 +1378,58 @@
         });
     }
 
-    // ⑤ 外部アプリからの「共有データ」受け取り完全同期版
+    // ⑤ 最上部で退避しておいた共有データを安全に差し込む関数
     async function handleSharedData() {
-        const parsedUrl = new URL(window.location.href);
-        const sharedTitle = parsedUrl.searchParams.get('title') || '';
-        const sharedText = parsedUrl.searchParams.get('text') || 
-                           parsedUrl.searchParams.get('body') || 
-                           parsedUrl.searchParams.get('content') || '';
-        const sharedUrl = parsedUrl.searchParams.get('url') || '';
+        if (!savedSharedData) return;
 
-        if (sharedText || sharedUrl || sharedTitle) {
-            let combinedContent = sharedText;
-            if (sharedUrl) combinedContent += (combinedContent ? '\n' : '') + sharedUrl;
-
-            editingMemoId = Date.now();
-            const nowStr = new Date().toLocaleString('ja-JP');
-            const targetFolder = (currentFolder && currentFolder !== 'all') ? currentFolder : 'inbox';
-            
-            const newSharedMemo = {
-                id: editingMemoId,
-                title: sharedTitle,
-                content: combinedContent,
-                folder: targetFolder,
-                createdAt: nowStr,
-                updatedAt: nowStr,
-                lastRead: nowStr
-            };
-            
-            // サーバーのデータロードが終わった後のmemosに、確実に押し込む
-            memos.push(newSharedMemo);
-            saveAllMemos();
-            
-            // サーバー同期（非同期で待機）
-            if (navigator.onLine) {
-                await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'save', memo: newSharedMemo })
-                }).catch(e => console.log("共有同期エラー:", e));
-            }
-            
-            // URLクレンジング
-            window.history.replaceState({ type: 'home_active' }, document.title, window.location.origin + window.location.pathname);
-
-            // 画面の再描画をしてエディタを展開
-            renderStructure();
-            renderMemos();
-            openEditor(editingMemoId);
-            switchToEditMode();
+        editingMemoId = Date.now();
+        const nowStr = new Date().toLocaleString('ja-JP');
+        const targetFolder = (currentFolder && currentFolder !== 'all') ? currentFolder : 'inbox';
+        
+        const newSharedMemo = {
+            id: editingMemoId,
+            title: savedSharedData.title || '',
+            content: savedSharedData.content || '',
+            folder: targetFolder,
+            createdAt: nowStr,
+            updatedAt: nowStr,
+            lastRead: nowStr
+        };
+        
+        // 通信が終わった最新のmemos配列に、確実に押し込んでローカル保存
+        memos.push(newSharedMemo);
+        saveAllMemos();
+        
+        // サーバーへ同期
+        if (navigator.onLine) {
+            await fetch(GAS_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'save', memo: newSharedMemo })
+            }).catch(e => console.log("共有同期エラー:", e));
         }
+        
+        // 変数をクリアして重複処理を防止
+        savedSharedData = null;
+
+        // 画面を再描画して強制的に編集モードにする
+        renderStructure();
+        renderMemos();
+        openEditor(editingMemoId);
+        switchToEditMode();
     }
 
-    // 起動処理（サーバー読み込み完了後に共有データを処理する）
+    // 起動処理（ロード完了後に安全に連鎖実行）
     window.addEventListener('load', async () => {
-        // 履歴の初期スタックを仕込む
+        // 履歴状態のベースラインを規定
         initHistoryState();
 
-        // 1. まずサーバー/ローカルからデータを読み込み、画面を構築する
+        // 1. サーバー/ローカルからデータを読み込み、画面一覧を構築
         await loadFromServer();
         
-        // 1.5 ドラッグハンドルのイベントを初期化
+        // 1.5 ドラッグハンドル（検索バー）初期化
         initDragHandleEvents();
         
-        // 2. データのロードが完全に完了したことを確認してから、共有データを安全に処理する
+        // 2. 通信や初期表示がすべて整った後、退避させてあった共有データを安全に処理
         await handleSharedData();
 
         if ('serviceWorker' in navigator) {
