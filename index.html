@@ -1494,42 +1494,56 @@ function initDragHandleEvents() {
     window.addEventListener('load', async () => {
         // 履歴状態のベースラインを規定
         initHistoryState();
-        
-        // スワイプイベントの初期化
         initSwipeEvents();
-
-        // ドラッグハンドル（検索バー）初期化（重複していたので1箇所に整理）
         initDragHandleEvents();
         
         // 1. サーバー/ローカルからデータを読み込み、画面一覧を構築
         await loadFromServer();
+
+        // 💡【新設】起動した瞬間、SWが裏口から残していった「共有データ」が倉庫にないか直接確認しに行く
+        try {
+            const sharedData = await new Promise((resolve) => {
+                const request = indexedDB.open("PWARequestStorage", 1);
+                request.onsuccess = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains("requests")) { resolve(null); return; }
+                    const tx = db.transaction("requests", "readonly");
+                    const getReq = tx.objectStore("requests").get("shared_data");
+                    getReq.onsuccess = () => resolve(getReq.result ? getReq.result.value : null);
+                    getReq.onerror = () => resolve(null);
+                };
+                request.onerror = () => resolve(null);
+            });
+
+            // もし裏口にデータが届いていたら、最優先でlocalStorageに移し替えて倉庫を掃除する
+            if (sharedData && (sharedData.title || sharedData.content)) {
+                localStorage.setItem('pwa_shared_memo_data', JSON.stringify(sharedData));
+                
+                // 次回起動時に重複しないよう、IndexedDB側のデータは即座に削除
+                const dbReq = indexedDB.open("PWARequestStorage", 1);
+                dbReq.onsuccess = (e) => {
+                    const db = e.target.result;
+                    const tx = db.transaction("requests", "readwrite");
+                    tx.objectStore("requests").delete("shared_data");
+                };
+            }
+        } catch (e) {
+            console.error("起動時の共有データ確認エラー:", e);
+        }
         
-        // 2. 通信や初期表示がすべて整った後、退避させてあった共有データを安全に処理
+        // 2. データの移し替えが完了した安全な状態で、共有エディタを開く関数を呼び出す
         await handleSharedData();
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('Service Worker 登録成功！'))
+                .then(reg => {
+                    console.log('Service Worker 登録成功！');
+                    // 💡 コードの書き換えをOperaに即座に反映させるため、SWの更新チェックを強制
+                    reg.update();
+                })
                 .catch(err => console.log('Service Worker 登録失敗...', err));
         }
     });
-    
-// 💡 SWからのメッセージ（共有データ）を受け取るための待ち受け（超安全リロード版）
-navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SHARED_DATA') {
-        try {
-            // 届いたデータを一度文字列にして確実にストレージに叩き込む
-            localStorage.setItem('pwa_shared_memo_data', JSON.stringify(event.data.data));
-            
-            // 💡【重要】少しだけ猶予（0.3秒）を持たせてから、確実にトップページを再起動させる
-            setTimeout(() => {
-                window.location.href = window.location.origin + window.location.pathname;
-            }, 300);
-        } catch (e) {
-            console.error("メッセージ受け取り時の保存エラー:", e);
-        }
-    }
-});
 </script>
 
 </body>
