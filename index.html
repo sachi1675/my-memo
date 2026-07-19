@@ -1546,33 +1546,33 @@ function initDragHandleEvents() {
                 .catch(err => console.log('Service Worker 登録失敗...', err));
         }
     });
-// 💡 セキュリティ制限を100%回避する「手動ペースト連動窓口」
+// 💡 セキュリティ制限を100%回避する「手動ペースト連動窓口」（安全装置・1行目カット連動版）
 function createMemoFromClipboard() {
-    // ユーザーにペーストしてもらうための入力窓（プロンプト）を表示
     const text = prompt("【マイメモ帳】コピーしたテキストをここに貼り付けてください（長押し⇒貼り付け）");
     
-    // キャンセルされたか、空っぽなら終了
     if (text === null) return; 
     if (text.trim() === "") {
         showToast("テキストが入力されていません");
         return;
     }
 
-    // 💡 ユーザーが貼り付けてくれた文字を自動切り分け（本文から1行目をカット）
     const lines = text.trim().split('\n');
-    const autoTitle = lines[0].substring(0, 30); // 1行目をタイトルに
-    
-    // 2行目以降だけを合体させて、すっきりした本文を作る
+    const autoTitle = lines[0].substring(0, 30);
     const autoContent = lines.slice(1).join('\n').trim();
 
-    // エディタを新規作成モードで初期化
     editingMemoId = null; 
     isChanged = true;
 
     document.getElementById('editorTitle').value = autoTitle;
     document.getElementById('editorBody').value = autoContent;
 
-    // エディタ画面を起動
+    // 💡【重要】スマホの戻るボタンでアプリが落ちないよう、履歴に「エディタを開いた状態」を記録する
+    if (typeof pushHistoryState === 'function') {
+        pushHistoryState({ mode: 'edit', id: null });
+    } else if (window.history && window.history.pushState) {
+        window.history.pushState({ mode: 'edit' }, null, null);
+    }
+
     editorModal.classList.add('open');
     document.getElementById('editArea').style.display = 'flex';
     document.getElementById('previewArea').style.display = 'none';
@@ -1580,7 +1580,6 @@ function createMemoFromClipboard() {
     document.getElementById('headerSaveBtn').style.display = 'block';
     document.getElementById('viewModeHeader').innerText = '新規メモ作成';
 
-    // 文字数や見た目を更新
     onEditorInput(); 
     showToast("テキストを取り込みました！");
 }
