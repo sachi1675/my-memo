@@ -1558,10 +1558,12 @@ function createMemoFromClipboard() {
         return;
     }
 
-    // 💡 ユーザーが貼り付けてくれた文字を、共有機能と同じルールで自動切り分け
+    // 💡 ユーザーが貼り付けてくれた文字を自動切り分け（本文から1行目をカット）
     const lines = text.trim().split('\n');
-    const autoTitle = lines[0].substring(0, 30); // 1行目をタイトルに（最大30文字）
-    const autoContent = text;
+    const autoTitle = lines[0].substring(0, 30); // 1行目をタイトルに
+    
+    // 2行目以降だけを合体させて、すっきりした本文を作る
+    const autoContent = lines.slice(1).join('\n').trim();
 
     // エディタを新規作成モードで初期化
     editingMemoId = null; 
