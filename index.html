@@ -734,13 +734,15 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             };
             // ⑤ 共有で持ってきたデータが content でも body でもどちらでも動くようにガードを挟む
             const memoContent = memo.content || memo.body || '';
+            // ⑤・③ タイトルや本文が空でも、絶対に「無題のメモ」を入れてサイズ感が広がるバグを防ぐガード
+            const memoContent = memo.content || memo.body || '';
             let displayTitle = memo.title && memo.title.trim() ? memo.title : (memoContent.split('\n')[0] || '無題のメモ');
+            if (!displayTitle || !displayTitle.trim()) { displayTitle = '無題のメモ'; }
             
-                        // --- ここから日付のクレンジング処理を追加（スラッシュ統一版） ---
+            // --- ここから日付のクレンジング処理を追加（スラッシュ統一版） ---
             let displayDate = '日付不明';
             if (memo.updatedAt && !memo.updatedAt.includes('{{$date}}')) {
                 if (memo.updatedAt.includes('T')) {
-                    // ハイフン区切りをスラッシュ区切りに変換
                     displayDate = memo.updatedAt.split('T')[0].replace(/-/g, '/');
                 } else {
                     displayDate = memo.updatedAt.split(' ')[0];
@@ -750,29 +752,25 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             }
             // --- ここまで追加 ---
 
-            
             // e. 並び替え用の「▲」「▼」ボタン（フォルダ内かつ検索中でない場合のみ）
             let orderBtnHtml = '';
             if (currentFolder !== 'all' && !searchQuery) {
                 orderBtnHtml = `
-                    <div class="memo-order-btns">
+                    <div class="memo-order-btns" style="display: flex; flex-direction: column; gap: 4px; margin-left: 12px; flex-shrink: 0;">
                         <button class="order-btn" onclick="moveMemoOrder(${idx}, -1)">▲</button>
                         <button class="order-btn" onclick="moveMemoOrder(${idx}, 1)">▼</button>
                     </div>
                 `;
             }
 
-            // ③ タイトルが空のときに外枠が潰れるのを防ぐスタイルを追加
-            item.style.minHeight = '60px';
-
-            // ③・画像3のレイアウト：フォルダ名と日付を縦並び（flex-direction: column）にして分離
+            // JavaScriptから直接左右両端へ引き離すデザイン（space-between）を指定
             item.innerHTML = `
-                <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
-                <div class="memo-info" style="display: flex; flex-direction: column; flex-grow: 1; margin-left: 10px;">
-                    <div class="memo-title" style="font-weight: bold; margin-bottom: 4px;">${highlight(displayTitle)}</div>
-                    <div class="memo-meta" style="display: flex; flex-direction: column; gap: 2px; color: #666; font-size: 0.85rem;">
-                        <span class="memo-folder">${memo.folder || '未分類'}</span>
-                        <span class="memo-date" style="color: #999;">${displayDate}</span>
+                <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;">
+                <div class="memo-info" style="flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: column; margin-left: 12px;">
+                    <div class="memo-title" style="font-weight: bold; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin-bottom: 6px;">${highlight(displayTitle)}</div>
+                    <div class="memo-meta" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span style="color: #666; font-size: 13px;">${memo.folder || '未分類'}</span>
+                        <span style="color: #999; font-size: 13px; text-align: right;">${displayDate}</span>
                     </div>
                 </div>
                 ${orderBtnHtml}`;
