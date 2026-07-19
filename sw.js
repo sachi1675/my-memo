@@ -37,26 +37,40 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// ③ フェッチ時：共有データをPOSTで受け取ったらアプリに転送する
+// ③ フェッチ時：共有データをPOSTで受け取ったら直接データベースに保存して起動
 self.addEventListener('fetch', (event) => {
-    // 共有データがPOSTで送られてきた場合
-    if (event.request.method === 'POST' && event.request.url.includes('./')) {
+    if (event.request.method === 'POST') {
         event.respondWith((async () => {
-            const formData = await event.request.formData();
-            const data = {
-                title: formData.get('title'),
-                content: formData.get('text') || formData.get('url'),
-                url: formData.get('url')
-            };
+            try {
+                const formData = await event.request.formData();
+                const data = {
+                    title: formData.get('title') || '',
+                    content: formData.get('text') || formData.get('url') || '',
+                    url: formData.get('url') || ''
+                };
 
-            // アプリ本体（クライアント）を探してデータを送信
-            const clients = await self.clients.matchAll();
-            for (const client of clients) {
-                client.postMessage({ type: 'SHARED_DATA', data });
+                // 💡画面を介さず、SWが直接IndexedDB（ブラウザの安全な倉庫）を開いてデータを保存する
+                await new Promise((resolve, reject) => {
+                    const request = indexedDB.open("PWARequestStorage", 1);
+                    request.onupgradeneeded = (e) => {
+                        e.target.result.createObjectStore("requests", { keyPath: "id" });
+                    };
+                    request.onsuccess = (e) => {
+                        const db = e.target.result;
+                        const tx = db.transaction("requests", "readwrite");
+                        tx.objectStore("requests").put({ id: "shared_data", value: data });
+                        tx.oncomplete = () => resolve();
+                        tx.onerror = () => reject();
+                    };
+                    request.onerror = () => reject();
+                });
+
+            } catch (err) {
+                console.error("SWでの共有データ直接保存に失敗:", err);
             }
 
-            // 処理後、トップページへリダイレクト
-            return Response.redirect('./');
+            // データ保存後、真っ新なトップページを安全に起動
+            return Response.redirect('./', 303);
         })());
         return;
     }
