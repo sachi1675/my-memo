@@ -1437,9 +1437,9 @@ function initDragHandleEvents() {
     });
 }
 
-    // ⑤ 最上部で退避しておいた共有データを安全に差し込む関数（ストレージ対応版）
+    // ⑤ 最上部で退避しておいた共有データを安全に差し込む関数（タイミング安定版）
     async function handleSharedData() {
-        // 💡 変数ではなく、localStorage から退避データを取得する
+        // 💡 画面起動時に、ストレージに共有データが転がっていないか確認
         const storedSharedData = localStorage.getItem('pwa_shared_memo_data');
         if (!storedSharedData) return;
 
@@ -1447,6 +1447,9 @@ function initDragHandleEvents() {
             const sharedData = JSON.parse(storedSharedData);
             if (!sharedData || (!sharedData.title && !sharedData.content)) return;
 
+            // すでにスプレッドシート側（サーバー）には保存されていることが判明したため、
+            // ここでは「スマホの画面（memos配列）にデータを追加して、編集画面を開く」ことだけに集中します。
+            
             editingMemoId = Date.now();
             const nowStr = new Date().toLocaleString('ja-JP');
             const targetFolder = (currentFolder && currentFolder !== 'all') ? currentFolder : 'inbox';
@@ -1461,28 +1464,28 @@ function initDragHandleEvents() {
                 lastRead: nowStr
             };
             
-            // 通信が終わった最新のmemos配列に、確実に押し込んでローカル保存
-            memos.push(newSharedMemo);
-            saveAllMemos();
-            
-            // サーバーへ同期
-            if (navigator.onLine) {
-                await fetch(GAS_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'save', memo: newSharedMemo })
-                }).catch(e => console.log("共有同期エラー:", e));
+            // 重複登録を防ぐため、すでに同じIDや内容のメモがmemosにないか念のためチェック
+            const isAlreadyExists = memos.some(m => m.title === newSharedMemo.title && m.content === newSharedMemo.content);
+            if (!isAlreadyExists) {
+                memos.push(newSharedMemo);
+                saveAllMemos();
             }
             
-            // 画面を再描画して強制的に編集モードにする
+            // 画面をしっかり再描画
             renderStructure();
             renderMemos();
-            openEditor(editingMemoId);
-            switchToEditMode();
+            
+            // 💡 画面の準備が完全に整うのをほんの少し（0.2秒）待ってからエディタを強制起動
+            setTimeout(() => {
+                openEditor(editingMemoId);
+                switchToEditMode();
+                showToast("共有された内容を読み込みました");
+            }, 200);
 
         } catch (e) {
             console.error("共有データの復元・展開に失敗:", e);
         } finally {
-            // 💡 1回処理したら、次回起動時に重複して開かないよう綺麗に削除
+            // 次回起動時に重複して開かないよう、使い終わったら綺麗に削除
             localStorage.removeItem('pwa_shared_memo_data');
         }
     }
@@ -1511,14 +1514,20 @@ function initDragHandleEvents() {
         }
     });
     
-// 💡 SWからのメッセージ（共有データ）を受け取るための待ち受け
+// 💡 SWからのメッセージ（共有データ）を受け取るための待ち受け（超安全リロード版）
 navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SHARED_DATA') {
-        // 届いたデータをストレージに保存
-        localStorage.setItem('pwa_shared_memo_data', JSON.stringify(event.data.data));
-        
-        // データを保存したら、強制リロードして編集画面を開かせる
-        window.location.reload(); 
+        try {
+            // 届いたデータを一度文字列にして確実にストレージに叩き込む
+            localStorage.setItem('pwa_shared_memo_data', JSON.stringify(event.data.data));
+            
+            // 💡【重要】少しだけ猶予（0.3秒）を持たせてから、確実にトップページを再起動させる
+            setTimeout(() => {
+                window.location.href = window.location.origin + window.location.pathname;
+            }, 300);
+        } catch (e) {
+            console.error("メッセージ受け取り時の保存エラー:", e);
+        }
     }
 });
 </script>
