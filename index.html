@@ -722,8 +722,6 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             };
             // ⑤ 共有で持ってきたデータが content でも body でもどちらでも動くようにガードを挟む
             const memoContent = memo.content || memo.body || '';
-            // ⑤・③ タイトルや本文が空でも、絶対に「無題のメモ」を入れてサイズ感が広がるバグを防ぐガード
-            const memoContent = memo.content || memo.body || '';
             let displayTitle = memo.title && memo.title.trim() ? memo.title : (memoContent.split('\n')[0] || '無題のメモ');
             if (!displayTitle || !displayTitle.trim()) { displayTitle = '無題のメモ'; }
             
