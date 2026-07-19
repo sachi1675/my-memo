@@ -1186,32 +1186,42 @@ function replaceText() {
         const index = text.indexOf(findVal, currentMatchIndex);
         
         if (index !== -1) {
-            // 見つかったテキストを選択状態（ハイライト）にする
+            // 見つかったテキストを選択状態にする（動くブラウザ用の保険）
             bodyInput.focus();
             bodyInput.setSelectionRange(index, index + findVal.length);
             
-            // スムーズに選択箇所へスクロール（長文対策）
-            const lineHeight = 20; // 概算の行の高さ
+            // スムーズに選択箇所へスクロール
+            const lineHeight = 20;
             const lines = text.substring(0, index).split('\n').length;
             bodyInput.scrollTop = (lines - 2) * lineHeight;
             
-            if (confirm("選択されたこの箇所を置換しますか？")) {
+            // 💡【修正箇所】見つかった場所の前後の文字を15文字ずつ切り出す
+            const startPos = Math.max(0, index - 15);
+            const endPos = Math.min(text.length, index + findVal.length + 15);
+            
+            const beforeText = text.substring(startPos, index).replace(/\n/g, ' ');
+            const afterText = text.substring(index + findVal.length, endPos).replace(/\n/g, ' ');
+            
+            // ポップアップに表示する文脈を作成
+            const snippet = `... ${beforeText}【 ${findVal} 】${afterText} ...`;
+            
+            // 確認ダイアログに文脈を表示
+            if (confirm(`以下の箇所を「${replaceVal}」に置換しますか？\n\n${snippet}`)) {
                 // 置換を実行
                 const before = text.substring(0, index);
                 const after = text.substring(index + findVal.length);
                 bodyInput.value = before + replaceVal + after;
                 
-                onEditorInput(); // 変更フラグと文字数を更新
+                onEditorInput();
                 showToast("1箇所置換しました");
                 
-                // 次の検索は、置換した文字の後ろからスタート
                 currentMatchIndex = index + replaceVal.length;
             } else {
-                // スキップされた場合は、現在見つかった文字のすぐ後ろから次回検索
                 currentMatchIndex = index + findVal.length;
                 showToast("次へスキップしました");
             }
         } else {
+
             // 最後まで到達した場合
             showToast("最後のキーワードに達したか、もう見つかりません。最初に戻ります。");
             currentMatchIndex = 0;
