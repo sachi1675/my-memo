@@ -716,7 +716,9 @@ const sharedText = parsedUrl.searchParams.get('text') ||
                 const regex = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
                 return text.replace(regex, '<mark style="background: #fff200;">$1</mark>');
             };
-                        let displayTitle = memo.title && memo.title.trim() ? memo.title : (memo.content.split('\n')[0] || '無題のメモ');
+            // ⑤ 共有で持ってきたデータが content でも body でもどちらでも動くようにガードを挟む
+            const memoContent = memo.content || memo.body || '';
+            let displayTitle = memo.title && memo.title.trim() ? memo.title : (memoContent.split('\n')[0] || '無題のメモ');
             
                         // --- ここから日付のクレンジング処理を追加（スラッシュ統一版） ---
             let displayDate = '日付不明';
@@ -744,11 +746,18 @@ const sharedText = parsedUrl.searchParams.get('text') ||
                 `;
             }
 
+            // ③ タイトルが空のときに外枠が潰れるのを防ぐスタイルを追加
+            item.style.minHeight = '60px';
+
+            // ③・画像3のレイアウト：フォルダ名と日付を縦並び（flex-direction: column）にして分離
             item.innerHTML = `
                 <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
-                <div class="memo-info">
-                    <div class="memo-title">${highlight(displayTitle)}</div>
-                    <div class="memo-meta"><span>${memo.folder || '未分類'}</span><span>${displayDate}</span></div>
+                <div class="memo-info" style="display: flex; flex-direction: column; flex-grow: 1; margin-left: 10px;">
+                    <div class="memo-title" style="font-weight: bold; margin-bottom: 4px;">${highlight(displayTitle)}</div>
+                    <div class="memo-meta" style="display: flex; flex-direction: column; gap: 2px; color: #666; font-size: 0.85rem;">
+                        <span class="memo-folder">${memo.folder || '未分類'}</span>
+                        <span class="memo-date" style="color: #999;">${displayDate}</span>
+                    </div>
                 </div>
                 ${orderBtnHtml}`;
             list.appendChild(item);
