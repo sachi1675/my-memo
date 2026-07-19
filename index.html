@@ -843,15 +843,18 @@ const sharedText = parsedUrl.searchParams.get('text') ||
         showToast("選択したメモを移動しました");
     }
 
-    // エディタを開く
     function openEditor(id = null) {
         document.getElementById('optionsMenu').style.display = 'none';
         const modal = document.getElementById('editorModal');
         modal.classList.add('open');
         isChanged = false;
 
-        // 【修正】履歴スタックを確実に積み上げる
-        history.pushState({ type: 'preview_mode_active' }, null, '');
+        // ここで毎回 pushState しているのが履歴を汚す原因の一つです。
+        // 一度だけ履歴を追加し、それ以降は変更しないようにします。
+        if (history.state?.type !== 'modal_open') {
+            history.pushState({ type: 'modal_open' }, null, '');
+        }
+        // ...以下略
 
         if (id) {
             editingMemoId = id;
@@ -1264,39 +1267,36 @@ const sharedText = parsedUrl.searchParams.get('text') ||
     }
 
     // スマホの「戻る」ボタン/ジェスチャー処理
+    // スマホの「戻る」ボタン/ジェスチャー処理（修正版）
     window.addEventListener('popstate', (e) => {
         const editorModal = document.getElementById('editorModal');
         const folderModal = document.getElementById('folderModal');
         const infoModal = document.getElementById('infoModalOverlay');
         const confirmOverlay = document.getElementById('customConfirmOverlay');
 
-        // 1. 確認ダイアログが開いているなら、閉じるだけで終了
+        // 1. 確認ダイアログが開いているなら閉じて終了
         if (confirmOverlay.classList.contains('open')) {
             confirmOverlay.classList.remove('open');
             return;
         }
 
-        // 2. 詳細モーダルが開いているなら閉じる
+        // 2. 詳細モーダル・フォルダ管理が開いているなら閉じて終了
         if (infoModal.classList.contains('open')) {
             exitInfoVisuals();
             return;
         }
-
-        // 3. フォルダ管理が開いているなら閉じる
         if (folderModal.classList.contains('open')) {
             exitFolderVisuals();
             return;
         }
 
-        // 4. エディタが開いている場合
+        // 3. エディタが開いている場合
         if (editorModal.classList.contains('open')) {
+            // 編集モードならプレビューへ戻す
             if (document.getElementById('editArea').style.display === 'flex') {
-                // 編集モードならプレビューへ戻す
-                if (!editingMemoId) {
-                    exitEditorVisuals();
-                } else {
-                    switchToPreviewMode();
-                }
+                switchToPreviewMode();
+                // 履歴が戻りすぎないよう、現在地を再定義
+                history.pushState({ type: 'preview_mode_active' }, null, '');
             } else {
                 // プレビューモードならエディタ全体を閉じる
                 exitEditorVisuals();
@@ -1304,7 +1304,7 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             return;
         }
 
-        // 5. 検索中ならクリア
+        // 4. 検索中ならクリア
         if (isSearchActiveState) {
             isSearchActiveState = false;
             document.getElementById('search').value = '';
@@ -1312,10 +1312,10 @@ const sharedText = parsedUrl.searchParams.get('text') ||
             return;
         }
 
-        // 6. それ以外（トップ画面）なら終了確認
+        // 5. トップ画面なら終了確認
         const now = Date.now();
         if (now - lastBackPressTime < 2000) {
-            window.close(); // アプリを閉じる
+            window.close();
         } else {
             lastBackPressTime = now;
             showToast("もう一度戻るを押すと終了します");
