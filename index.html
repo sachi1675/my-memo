@@ -1546,66 +1546,31 @@ function initDragHandleEvents() {
                 .catch(err => console.log('Service Worker 登録失敗...', err));
         }
     });
-// 💡 見えない入力欄を使って確実にクリップボードを読み取る関数（セキュリティ制限回避版）
+// 💡 セキュリティ制限を100%回避する「手動ペースト連動窓口」
 function createMemoFromClipboard() {
-    // 画面外に見えないテキストエリアを一時的に作成
-    const textarea = document.createElement("textarea");
-    textarea.style.position = "fixed";
-    textarea.style.top = "-9999px";
-    document.body.appendChild(textarea);
+    // ユーザーにペーストしてもらうための入力窓（プロンプト）を表示
+    const text = prompt("【マイメモ帳】コピーしたテキストをここに貼り付けてください（長押し⇒貼り付け）");
     
-    // そこにフォーカスを合わせて選択状態にする
-    textarea.focus();
-    textarea.select();
-
-    try {
-        // ブラウザ標準の「貼り付け（ペースト）」コマンドを強制実行
-        const successful = document.execCommand('paste');
-        
-        // 💡 もし上記がブロックされた場合のセーフティネット（従来の命令も念のため試す）
-        if (!successful || !textarea.value) {
-            navigator.clipboard.readText().then(text => {
-                processClipboardText(text);
-            }).catch(err => {
-                showToast("貼り付け権限が拒否されました。一度通常ボタンで新規作成してください");
-            });
-            document.body.removeChild(textarea);
-            return;
-        }
-
-        // 読み取りに成功したら処理へ進む
-        processClipboardText(textarea.value);
-
-    } catch (err) {
-        // document.execCommand が完全にダメだった場合は通常ルートへ
-        navigator.clipboard.readText().then(text => {
-            processClipboardText(text);
-        }).catch(e => {
-            showToast("お使いの環境では自動読み取りが制限されています");
-        });
-    } finally {
-        // 使い終わった見えないゴミ箱は綺麗に消去
-        document.body.removeChild(textarea);
-    }
-}
-
-// 💡 読み取ったテキストを安全にエディタに流し込む共通処理
-function processClipboardText(text) {
-    if (!text || text.trim() === "") {
-        showToast("クリップボードが空っぽです");
+    // キャンセルされたか、空っぽなら終了
+    if (text === null) return; 
+    if (text.trim() === "") {
+        showToast("テキストが入力されていません");
         return;
     }
 
+    // 💡 ユーザーが貼り付けてくれた文字を、共有機能と同じルールで自動切り分け
     const lines = text.trim().split('\n');
-    const autoTitle = lines[0].substring(0, 30);
+    const autoTitle = lines[0].substring(0, 30); // 1行目をタイトルに（最大30文字）
     const autoContent = text;
 
+    // エディタを新規作成モードで初期化
     editingMemoId = null; 
     isChanged = true;
 
     document.getElementById('editorTitle').value = autoTitle;
     document.getElementById('editorBody').value = autoContent;
 
+    // エディタ画面を起動
     editorModal.classList.add('open');
     document.getElementById('editArea').style.display = 'flex';
     document.getElementById('previewArea').style.display = 'none';
@@ -1613,8 +1578,9 @@ function processClipboardText(text) {
     document.getElementById('headerSaveBtn').style.display = 'block';
     document.getElementById('viewModeHeader').innerText = '新規メモ作成';
 
+    // 文字数や見た目を更新
     onEditorInput(); 
-    showToast("クリップボードから文字を読み込みました！");
+    showToast("テキストを取り込みました！");
 }
 </script>
 
