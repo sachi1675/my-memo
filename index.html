@@ -15,7 +15,7 @@
             --danger-color: #e04b4b;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
+        body { font-family: sans-serif; background: var(--bg-color); color: var(--text-color); height: 100vh; overflow: hidden; width: 100vw; max-width: 100%; position: relative; }
         
         /* サイドバー */
         .sidebar { position: fixed; top: 0; left: -260px; width: 260px; height: 100%; background: var(--sidebar-bg); color: var(--sidebar-text); transition: 0.3s; z-index: 1000; padding: 20px; overflow-y: auto; touch-action: pan-y; }
@@ -30,7 +30,7 @@
         .folder-sub { padding-left: 15px; }
 
         /* メイン画面 */
-        .main-content { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
+        .main-content { width: 100%; max-width: 100%; display: flex; flex-direction: column; height: 100%; position: relative; }
         header { background: #fff; padding: 10px 15px; display: flex; align-items: center; border-bottom: 1px solid #ddd; gap: 10px; }
         .menu-btn { font-size: 24px; cursor: pointer; background: none; border: none; padding: 5px; color: var(--text-color); }
         .search-bar { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 20px; font-size: 14px; outline: none; }
@@ -43,8 +43,8 @@
         #bulkMoveBtn.active { background: var(--accent-color); border-color: var(--accent-color); }
 
         /* アプリ全体の横はみ出しを絶対に防止するガード */
-        html, body { max-width: 100%; overflow-x: hidden; margin: 0; padding: 0; box-sizing: border-box; }
-        *, *:before, *:after { box-sizing: inherit; }
+        html { width: 100vw; max-width: 100%; overflow-x: hidden; }
+        *, *:before, *:after { box-sizing: border-box; }
 
         /* メモ一覧 */
         .memo-list { flex: 1; overflow-y: auto; padding: 10px; width: 100%; max-width: 100%; overflow-x: hidden; }
