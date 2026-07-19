@@ -1151,6 +1151,7 @@
     }
 
 function replaceText() {
+function replaceText() {
     const findVal = document.getElementById('findText').value;
     const replaceVal = document.getElementById('replaceText').value;
     if (!findVal) {
@@ -1159,72 +1160,75 @@ function replaceText() {
     }
 
     const bodyInput = document.getElementById('editorBody');
-    const text = bodyInput.value;
     
     // そもそもキーワードが含まれていない場合
-    if (!text.includes(findVal)) {
+    if (!bodyInput.value.includes(findVal)) {
         showToast("見つかりませんでした");
         return;
     }
 
-    // ブラウザ標準のconfirmダイアログで「すべて」か「1件ずつ」かを選択
-    if (confirm("見つかったすべての箇所を一括で置換しますか？\n\n【OK】すべて一括置換\n【キャンセル】1箇所ずつ確認して置換")) {
-        // ◆ すべて置換（一括置換）
-        bodyInput.value = text.split(findVal).join(replaceVal);
-        onEditorInput(); // 変更フラグと文字数を更新
+    // ◆ 最初の選択：一括か、1件ずつか
+    if (confirm("見つかったすべての箇所を一括で置換しますか？\n\n【OK】すべて一括置換\n【キャンセル】1箇所ずつ確認しながら置換")) {
+        // 【一括置換モード】
+        bodyInput.value = bodyInput.value.split(findVal).join(replaceVal);
+        onEditorInput();
         showToast("すべての置換を完了しました");
-        currentMatchIndex = -1; // インデックスをリセット
-    } else {
-        // ◆ 選べる置換（1箇所ずつ置換）
-        // 別のキーワードで再検索された場合は、検索位置を先頭に戻す
-        if (currentMatchSearchTerm !== findVal) {
-            currentMatchSearchTerm = findVal;
-            currentMatchIndex = 0;
-        }
-        
-        // currentMatchIndex の位置から次の一致を検索
-        const index = text.indexOf(findVal, currentMatchIndex);
-        
-        if (index !== -1) {
-            // 見つかったテキストを選択状態にする（動くブラウザ用の保険）
-            bodyInput.focus();
-            bodyInput.setSelectionRange(index, index + findVal.length);
-            
-            // スムーズに選択箇所へスクロール
-            const lineHeight = 20;
-            const lines = text.substring(0, index).split('\n').length;
-            bodyInput.scrollTop = (lines - 2) * lineHeight;
-            
-            // 💡【修正箇所】見つかった場所の前後の文字を15文字ずつ切り出す
-            const startPos = Math.max(0, index - 15);
-            const endPos = Math.min(text.length, index + findVal.length + 15);
-            
-            const beforeText = text.substring(startPos, index).replace(/\n/g, ' ');
-            const afterText = text.substring(index + findVal.length, endPos).replace(/\n/g, ' ');
-            
-            // ポップアップに表示する文脈を作成
-            const snippet = `... ${beforeText}【 ${findVal} 】${afterText} ...`;
-            
-            // 確認ダイアログに文脈を表示
-            if (confirm(`以下の箇所を「${replaceVal}」に置換しますか？\n\n${snippet}`)) {
-                // 置換を実行
-                const before = text.substring(0, index);
-                const after = text.substring(index + findVal.length);
-                bodyInput.value = before + replaceVal + after;
-                
-                onEditorInput();
-                showToast("1箇所置換しました");
-                
-                currentMatchIndex = index + replaceVal.length;
-            } else {
-                currentMatchIndex = index + findVal.length;
-                showToast("次へスキップしました");
-            }
-        } else {
+        currentMatchIndex = -1;
+        return; // ここで終了
+    }
 
-            // 最後まで到達した場合
-            showToast("最後のキーワードに達したか、もう見つかりません。最初に戻ります。");
-            currentMatchIndex = 0;
+    // 【選べる置換モード】ここから連続ループに入ります
+    // 新しいキーワードなら検索位置を先頭（0）に戻す
+    if (currentMatchSearchTerm !== findVal) {
+        currentMatchSearchTerm = findVal;
+        currentMatchIndex = 0;
+    }
+
+    let matchCount = 0;
+
+    // whileループを使い、見つかる限り「ここは？ここは？」と何度もポップアップを出し続ける
+    while (true) {
+        const text = bodyInput.value;
+        const index = text.indexOf(findVal, currentMatchIndex);
+
+        // もう見つからない場合はループを抜ける
+        if (index === -1) {
+            if (matchCount > 0) {
+                showToast("確認がすべて完了しました");
+            } else {
+                showToast("最後のキーワードに達したか、もう見つかりません。最初に戻ります。");
+            }
+            currentMatchIndex = 0; // 次回のためにリセット
+            break;
+        }
+
+        matchCount++;
+
+        // 見つかった場所の前後の文字を15文字ずつ切り出す（文脈表示）
+        const startPos = Math.max(0, index - 15);
+        const endPos = Math.min(text.length, index + findVal.length + 15);
+        const beforeText = text.substring(startPos, index).replace(/\n/g, ' ');
+        const afterText = text.substring(index + findVal.length, endPos).replace(/\n/g, ' ');
+        const snippet = `... ${beforeText}【 ${findVal} 】${afterText} ...`;
+
+        // 画面上の選択ハイライトも一応動かす（保険）
+        bodyInput.focus();
+        bodyInput.setSelectionRange(index, index + findVal.length);
+
+        // ★ここでユーザーに1箇所ずつ確認
+        if (confirm(`この箇所を「${replaceVal}」に置換しますか？\n\n${snippet}\n\n【OK】置換して次へ\n【キャンセル】置換せずに次へスキップ`)) {
+            // 【OK】置換を実行
+            const before = text.substring(0, index);
+            const after = text.substring(index + findVal.length);
+            bodyInput.value = before + replaceVal + after;
+            
+            onEditorInput(); // 文字数と変更フラグ更新
+            
+            // 次の検索は、置換した文字（replaceVal）の後ろからスタート
+            currentMatchIndex = index + replaceVal.length;
+        } else {
+            // 【キャンセル】置換せずに次へスキップ
+            currentMatchIndex = index + findVal.length;
         }
     }
 }
