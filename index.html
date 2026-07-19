@@ -1150,52 +1150,74 @@
         document.getElementById('infoModalOverlay').classList.remove('open');
     }
 
-    function replaceText() {
-        const findVal = document.getElementById('findText').value;
-        const replaceVal = document.getElementById('replaceText').value;
-        if (!findVal) return;
+function replaceText() {
+    const findVal = document.getElementById('findText').value;
+    const replaceVal = document.getElementById('replaceText').value;
+    if (!findVal) {
+        showToast("検索するキーワードを入力してください");
+        return;
+    }
 
-        const bodyInput = document.getElementById('editorBody');
-        const text = bodyInput.value;
-        
-        if (!text.includes(findVal)) {
-            showToast("見つかりませんでした");
-            return;
+    const bodyInput = document.getElementById('editorBody');
+    const text = bodyInput.value;
+    
+    // そもそもキーワードが含まれていない場合
+    if (!text.includes(findVal)) {
+        showToast("見つかりませんでした");
+        return;
+    }
+
+    // ブラウザ標準のconfirmダイアログで「すべて」か「1件ずつ」かを選択
+    if (confirm("見つかったすべての箇所を一括で置換しますか？\n\n【OK】すべて一括置換\n【キャンセル】1箇所ずつ確認して置換")) {
+        // ◆ すべて置換（一括置換）
+        bodyInput.value = text.split(findVal).join(replaceVal);
+        onEditorInput(); // 変更フラグと文字数を更新
+        showToast("すべての置換を完了しました");
+        currentMatchIndex = -1; // インデックスをリセット
+    } else {
+        // ◆ 選べる置換（1箇所ずつ置換）
+        // 別のキーワードで再検索された場合は、検索位置を先頭に戻す
+        if (currentMatchSearchTerm !== findVal) {
+            currentMatchSearchTerm = findVal;
+            currentMatchIndex = 0;
         }
-
-        if (confirm("見つかったすべての箇所を一括で置換しますか？\n(「キャンセル」を押すと1件ずつ選択して置換できます)")) {
-            bodyInput.value = text.split(findVal).join(replaceVal);
-            onEditorInput();
-            showToast("すべての置換を完了しました");
-            currentMatchIndex = -1;
-        } else {
-            if (currentMatchSearchTerm !== findVal) {
-                currentMatchSearchTerm = findVal;
-                currentMatchIndex = 0;
-            }
+        
+        // currentMatchIndex の位置から次の一致を検索
+        const index = text.indexOf(findVal, currentMatchIndex);
+        
+        if (index !== -1) {
+            // 見つかったテキストを選択状態（ハイライト）にする
+            bodyInput.focus();
+            bodyInput.setSelectionRange(index, index + findVal.length);
             
-            const index = text.indexOf(findVal, currentMatchIndex);
-            if (index !== -1) {
-                bodyInput.focus();
-                bodyInput.setSelectionRange(index, index + findVal.length);
+            // スムーズに選択箇所へスクロール（長文対策）
+            const lineHeight = 20; // 概算の行の高さ
+            const lines = text.substring(0, index).split('\n').length;
+            bodyInput.scrollTop = (lines - 2) * lineHeight;
+            
+            if (confirm("選択されたこの箇所を置換しますか？")) {
+                // 置換を実行
+                const before = text.substring(0, index);
+                const after = text.substring(index + findVal.length);
+                bodyInput.value = before + replaceVal + after;
                 
-                if (confirm("選択されたこの箇所を置換しますか？")) {
-                    const before = text.substring(0, index);
-                    const after = text.substring(index + findVal.length);
-                    bodyInput.value = before + replaceVal + after;
-                    onEditorInput();
-                    showToast("1箇所置換しました");
-                    currentMatchIndex = index + replaceVal.length;
-                } else {
-                    currentMatchIndex = index + findVal.length;
-                    showToast("次へスキップしました");
-                }
+                onEditorInput(); // 変更フラグと文字数を更新
+                showToast("1箇所置換しました");
+                
+                // 次の検索は、置換した文字の後ろからスタート
+                currentMatchIndex = index + replaceVal.length;
             } else {
-                showToast("最後のキーワードに達したか、もう見つかりません。最初に戻ります。");
-                currentMatchIndex = 0;
+                // スキップされた場合は、現在見つかった文字のすぐ後ろから次回検索
+                currentMatchIndex = index + findVal.length;
+                showToast("次へスキップしました");
             }
+        } else {
+            // 最後まで到達した場合
+            showToast("最後のキーワードに達したか、もう見つかりません。最初に戻ります。");
+            currentMatchIndex = 0;
         }
     }
+}
 
     function highlightPreviewText() {
         const q = document.getElementById('previewSearchInput').value.toLowerCase();
