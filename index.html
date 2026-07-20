@@ -1466,13 +1466,8 @@ window.addEventListener('popstate', (e) => {
                     history.pushState({ type: 'edit_mode' }, null, '');
                     confirmOverlay.classList.add('open');
                 } else {
-                    // 変更がなければ詳細画面（プレビュー）に戻す
-                    document.getElementById('editArea').style.display = 'none';
-                    document.getElementById('previewArea').style.display = 'block';
-                    document.getElementById('previewDragHandle').style.display = 'flex';
-                    document.getElementById('headerSaveBtn').style.display = 'none';
-                    document.getElementById('viewModeHeader').innerText = 'メモ詳細';
-                    highlightPreviewText();
+    // 変更がなければ詳細画面（プレビュー）に戻す
+switchToPreviewMode();
                 }
             }
             return;
