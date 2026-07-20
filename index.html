@@ -53,16 +53,58 @@
         .memo-item { background: #fff; padding: 8px 12px; margin-bottom: 6px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; display: flex; align-items: center; gap: 10px; width: 100%; max-width: 100%; overflow: hidden; }
         .memo-checkbox { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
         
-        /* メモ情報エリア（左右並び） */
-        .memo-info { flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
-        
-        /* 左側：タイトル */
-        .memo-title { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; line-height: 1.3; margin: 0; }
-        
+        /* メモ情報エリア（強制的に左右並び＋左寄せ） */
+        .memo-info {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+            text-align: left !important;
+        }
+
+        /* 左側：タイトル（強制左寄せ） */
+        .memo-title {
+            font-weight: bold;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1 !important;
+            min-width: 0;
+            line-height: 1.3;
+            margin: 0 !important;
+            text-align: left !important;
+        }
+
         /* 右側：日付とフォルダ名（縦2段・右寄せ） */
-        .memo-meta { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; flex-shrink: 0; margin-top: 0; gap: 2px; }
-        .memo-meta span { color: #666; font-size: 11px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-        .memo-meta span:last-child { color: #888; text-align: right; margin-left: 0; }
+        .memo-meta {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: flex-end !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+            margin-top: 0 !important;
+            gap: 2px;
+        }
+
+        .memo-meta span {
+            color: #666;
+            font-size: 11px;
+            text-align: right !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+            display: block !important;
+        }
+
+        .memo-meta span:last-child {
+            color: #888;
+            text-align: right !important;
+            margin-left: 0;
+        }
 
         /* メモ並び替え用の上下ボタン */
         .memo-order-btns { display: flex; flex-direction: column; gap: 4px; margin-left: auto; }
@@ -732,14 +774,11 @@
             /* 💡 強制左寄せ・右寄せ・2段配置を設定したHTML */
             item.innerHTML = `
                 <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;">
-                <div class="memo-info" style="flex: 1; min-width: 0; overflow: hidden; display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-left: 10px; gap: 8px; text-align: left;">
-                    <!-- 左側：タイトル（左寄せ） -->
-                    <div class="memo-title" style="font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; margin: 0; text-align: left;">${highlight(displayTitle)}</div>
-                    
-                    <!-- 右側：日付とフォルダ（縦2段・右寄せ） -->
-                    <div class="memo-meta" style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; flex-shrink: 0; gap: 2px; text-align: right; margin-top: 0;">
-                        <span style="color: #666; font-size: 11px; text-align: right; white-space: nowrap; display: block;">${displayDate}</span>
-                        <span style="color: #888; font-size: 11px; text-align: right; white-space: nowrap; display: block;">${memo.folder || '未分類'}</span>
+                <div class="memo-info">
+                    <div class="memo-title">${highlight(displayTitle)}</div>
+                    <div class="memo-meta">
+                        <span>${displayDate}</span>
+                        <span>${memo.folder || '未分類'}</span>
                     </div>
                 </div>
                 ${orderBtnHtml}`;
