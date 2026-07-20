@@ -49,11 +49,11 @@
         /* メモ一覧 */
         .memo-list { flex: 1; overflow-y: auto; padding: 6px; width: 100%; max-width: 100%; overflow-x: hidden; }
         
-        /* メモカード全体の枠 */
+        /* メモカード全体の枠（★高さと余白をClevNote風に拡張） */
         .memo-item {
             background: #fff;
-            padding: 8px 12px;
-            margin-bottom: 6px;
+            padding: 16px 12px; /* ★上下の余白を 8px → 16px に広げて高さを確保 */
+            margin-bottom: 8px; /* ★カード同士の間隔もほんの少し広げて見やすく */
             border-radius: 6px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             cursor: pointer;
@@ -70,7 +70,7 @@
             height: 18px;
             cursor: pointer;
             flex-shrink: 0;
-            margin-right: 10px;
+            margin-right: 12px; /* ★チェックボックス右の余白を微調整 */
         }
         
         /* メモ情報エリア（タイトルとメタ情報を左右に分ける） */
@@ -87,7 +87,7 @@
         /* 左側：タイトル */
         .memo-title {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 15px; /* ★フォントサイズを14px→15pxにして読みやすく */
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -103,6 +103,22 @@
             display: flex !important;
             flex-direction: column !important;
             align-items: flex-end !important;
+            justify-content: center !important;
+            flex-shrink: 0 !important;
+            margin-left: 12px;
+            text-align: right !important;
+        }
+
+        .memo-meta span {
+            font-size: 11px;
+            line-height: 1.4 !important; /* ★行間を 1.2 → 1.4 に広げて窮屈さを解消 */
+            white-space: nowrap;
+            text-align: right !important;
+            display: block !important;
+        }
+        .memo-meta span:first-child { color: #666; }
+        .memo-meta span:last-child { color: #888; }
+
             justify-content: center !important;
             flex-shrink: 0 !important;
             margin-left: 10px;
@@ -1466,8 +1482,14 @@ window.addEventListener('popstate', (e) => {
                     history.pushState({ type: 'edit_mode' }, null, '');
                     confirmOverlay.classList.add('open');
                 } else {
-    // 変更がなければ詳細画面（プレビュー）に戻す
-switchToPreviewMode();
+// 変更がなければ詳細画面（プレビュー）に戻す
+document.getElementById('editArea').style.display = 'none';
+document.getElementById('previewArea').style.display = 'block';
+document.getElementById('previewDragHandle').style.display = 'flex';
+document.getElementById('headerSaveBtn').style.display = 'none';
+document.getElementById('viewModeHeader').innerText = 'メモ詳細';
+setupViewModeMenu(); // ←★この1行を追加してメニューをプレビュー用にリセットします
+highlightPreviewText();
                 }
             }
             return;
