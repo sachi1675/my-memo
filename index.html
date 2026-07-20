@@ -1482,26 +1482,33 @@ window.addEventListener('popstate', (e) => {
                     history.pushState({ type: 'edit_mode' }, null, '');
                     confirmOverlay.classList.add('open');
                 } else {
+                    
 // 変更がなければ詳細画面（プレビュー）に戻す
 document.getElementById('editArea').style.display = 'none';
 document.getElementById('previewArea').style.display = 'block';
-document.getElementById('previewDragHandle').style.display = 'flex';
-document.getElementById('headerSaveBtn').style.display = 'none';
-document.getElementById('viewModeHeader').innerText = 'メモ詳細';
+const dragHandle = document.getElementById('previewDragHandle');
+if (dragHandle) dragHandle.style.display = 'flex';
+const saveBtn = document.getElementById('headerSaveBtn');
+if (saveBtn) saveBtn.style.display = 'none';
+const viewHeader = document.getElementById('viewModeHeader');
+if (viewHeader) viewHeader.innerText = 'メモ詳細';
 
-// ▼ ここから置き換え
-if (document.getElementById('menuOptReplaceArea')) document.getElementById('menuOptReplaceArea').style.display = 'none';
-if (document.getElementById('menuOptEdit')) document.getElementById('menuOptEdit').style.display = 'block';
-if (document.getElementById('menuOptDuplicate')) document.getElementById('menuOptDuplicate').style.display = 'block';
-if (document.getElementById('menuOptInfo')) document.getElementById('menuOptInfo').style.display = 'block';
-if (document.getElementById('menuOptDelete')) document.getElementById('menuOptDelete').style.display = 'block';
+// メニュー要素が存在する場合のみ安全に切り替えを実行
+const replaceArea = document.getElementById('menuOptReplaceArea');
+if (replaceArea) replaceArea.style.display = 'none';
+
+['menuOptEdit', 'menuOptDuplicate', 'menuOptInfo', 'menuOptDelete'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'block';
+});
 
 const memoMenu = document.getElementById('memoMenu');
 if (memoMenu) memoMenu.style.display = 'none';
-// ▲ ここまで
 
-highlightPreviewText();
-                }
+// テキストのハイライトが存在する場合のみ実行
+if (typeof highlightPreviewText === 'function') {
+    highlightPreviewText();
+}
             }
             return;
         } else {
