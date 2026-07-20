@@ -1429,10 +1429,15 @@ function replaceText() {
         setTimeout(() => { toast.style.display = 'none'; }, 2000);
     }
 
-    // ① スマホの「戻る」ボタン/ジェスチャー処理（Opera最適化・完全版）
+// ① スマホの「戻る」ボタン/ジェスチャー処理（Opera最適化・完全版）
 window.addEventListener('popstate', (e) => {
+    // 【安全ガード】戻る動作が走ったら、開いているポップアップやメニューを無条件で確実に閉じる
+    ['optionsMenu', 'memoMenu', 'menuOptReplaceArea'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
     const sidebar = document.getElementById('sidebar');
-    const optionsMenu = document.getElementById('optionsMenu');
     const confirmOverlay = document.getElementById('customConfirmOverlay');
     const infoModal = document.getElementById('infoModalOverlay');
     const folderModal = document.getElementById('folderModal');
@@ -1440,77 +1445,64 @@ window.addEventListener('popstate', (e) => {
     const editorModal = document.getElementById('editorModal');
 
     // 1. 確認ダイアログが開いている場合は、最優先でダイアログを閉じる
-    if (confirmOverlay.classList.contains('open')) {
+    if (confirmOverlay && confirmOverlay.classList.contains('open')) {
         confirmOverlay.classList.remove('open');
         return;
     }
 
-    // 2. 「︙」メニューが開いている場合はメニューを閉じる
-    if (optionsMenu.style.display === 'block') {
-        optionsMenu.style.display = 'none';
-        return;
-    }
-
-    // 3. その他のサブモーダルを閉じる
-    if (infoModal.classList.contains('open')) { infoModal.classList.remove('open'); return; }
-    if (folderModal.classList.contains('open')) { folderModal.classList.remove('open'); renderMemos(); return; }
-    if (bulkMoveModal.classList.contains('open')) { bulkMoveModal.classList.remove('open'); return; }
-    if (sidebar.classList.contains('open')) {
+    // 2. サブモーダル・サイドバーを閉じる
+    if (infoModal && infoModal.classList.contains('open')) { infoModal.classList.remove('open'); return; }
+    if (folderModal && folderModal.classList.contains('open')) { folderModal.classList.remove('open'); renderMemos(); return; }
+    if (bulkMoveModal && bulkMoveModal.classList.contains('open')) { bulkMoveModal.classList.remove('open'); return; }
+    if (sidebar && sidebar.classList.contains('open')) {
         sidebar.classList.remove('open');
-        document.getElementById('overlay').classList.remove('show');
+        const overlay = document.getElementById('overlay');
+        if (overlay) overlay.classList.remove('show');
         return;
     }
 
-    // 4. 詳細・編集画面が開いている場合
-    if (editorModal.classList.contains('open')) {
+    // 3. 詳細・編集画面が開いている場合
+    if (editorModal && editorModal.classList.contains('open')) {
         // 現在「編集モード」の場合
         if (document.getElementById('editArea').style.display === 'flex') {
             
-            // 💡【修正】既存メモの編集（editingMemoIdがある）か、新規作成（null）かで分岐
             if (editingMemoId === null) {
-                // ＋ボタンからの新規作成時：何も書かずに戻るなら一覧へ戻る
+                // 新規作成時：何も書かずに戻るなら一覧へ戻る
                 if (!isChanged) {
                     exitEditorVisuals();
                 } else {
-                    // 何か書いている場合は確認ダイアログを出す
                     history.pushState({ type: 'edit_mode' }, null, '');
                     confirmOverlay.classList.add('open');
                 }
             } else {
-                // 既存メモの編集時：戻るキーで詳細（プレビュー）画面に戻す
+                // 既存メモ編集時：戻るキーで詳細（プレビュー）画面に戻す
                 if (isChanged) {
                     history.pushState({ type: 'edit_mode' }, null, '');
                     confirmOverlay.classList.add('open');
                 } else {
+                    // 変更がなければ詳細画面（プレビュー）に戻す
+                    document.getElementById('editArea').style.display = 'none';
+                    document.getElementById('previewArea').style.display = 'block';
                     
-// 変更がなければ詳細画面（プレビュー）に戻す
-document.getElementById('editArea').style.display = 'none';
-document.getElementById('previewArea').style.display = 'block';
-const dragHandle = document.getElementById('previewDragHandle');
-if (dragHandle) dragHandle.style.display = 'flex';
-const saveBtn = document.getElementById('headerSaveBtn');
-if (saveBtn) saveBtn.style.display = 'none';
-const viewHeader = document.getElementById('viewModeHeader');
-if (viewHeader) viewHeader.innerText = 'メモ詳細';
+                    const dragHandle = document.getElementById('previewDragHandle');
+                    if (dragHandle) dragHandle.style.display = 'flex';
+                    
+                    const saveBtn = document.getElementById('headerSaveBtn');
+                    if (saveBtn) saveBtn.style.display = 'none';
+                    
+                    const viewHeader = document.getElementById('viewModeHeader');
+                    if (viewHeader) viewHeader.innerText = 'メモ詳細';
 
-// メニュー要素が存在する場合のみ安全に切り替えを実行
-const replaceArea = document.getElementById('menuOptReplaceArea');
-if (replaceArea) replaceArea.style.display = 'none';
+                    // メニュー項目をプレビュー用に復元
+                    ['menuOptEdit', 'menuOptDuplicate', 'menuOptInfo', 'menuOptDelete'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.display = 'block';
+                    });
 
-['menuOptEdit', 'menuOptDuplicate', 'menuOptInfo', 'menuOptDelete'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'block';
-});
-
-const memoMenu = document.getElementById('memoMenu');
-if (memoMenu) memoMenu.style.display = 'none';
-
-// テキストのハイライトが存在する場合のみ実行
-if (typeof highlightPreviewText === 'function') {
-    highlightPreviewText();
-}
-
-                } // ←★元のif文を閉じる括弧（ここが抜けていました！）
+                    if (typeof highlightPreviewText === 'function') {
+                        highlightPreviewText();
+                    }
+                }
             }
             return;
         } else {
@@ -1520,17 +1512,18 @@ if (typeof highlightPreviewText === 'function') {
         }
     }
 
-    // 5. 検索中ならクリア
-    if (isSearchActiveState) {
+    // 4. 検索中ならクリア
+    if (typeof isSearchActiveState !== 'undefined' && isSearchActiveState) {
         isSearchActiveState = false;
-        document.getElementById('search').value = '';
+        const searchInput = document.getElementById('search');
+        if (searchInput) searchInput.value = '';
         renderMemos();
         return;
     }
 
-    // 6. トップ画面での終了確認
+    // 5. トップ画面での終了確認
     const now = Date.now();
-    if (now - lastBackPressTime < 2000) {
+    if (typeof lastBackPressTime !== 'undefined' && now - lastBackPressTime < 2000) {
         window.close();
     } else {
         lastBackPressTime = now;
