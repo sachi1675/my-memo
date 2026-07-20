@@ -1079,12 +1079,20 @@
         document.getElementById('editorCounterHeader').innerText = `文字数: ${count} | 更新日: ${dateStr}`;
     }
 
-    function toggleOptionsMenu(e) {
-        e.stopPropagation();
-        const menu = document.getElementById('optionsMenu');
-        menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+function toggleOptionsMenu(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('optionsMenu');
+    
+    // 現在閉じていて、これから開く場合
+    if (menu.style.display !== 'block') {
+        menu.style.display = 'block';
+        // ★ メニュー用の履歴を1つ積んでおく
+        history.pushState({ type: 'menu' }, null, '');
+    } else {
+        // すでに開いていて、ボタン再タップで閉じる場合
+        menu.style.display = 'none';
     }
-
+}
     function onFolderChange() {
         const folderValue = document.getElementById('editorFolder').value;
         if (editingMemoId) {
