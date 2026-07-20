@@ -1488,7 +1488,18 @@ document.getElementById('previewArea').style.display = 'block';
 document.getElementById('previewDragHandle').style.display = 'flex';
 document.getElementById('headerSaveBtn').style.display = 'none';
 document.getElementById('viewModeHeader').innerText = 'メモ詳細';
-setupViewModeMenu(); // ←★この1行を追加してメニューをプレビュー用にリセットします
+
+// ▼ ここから置き換え
+if (document.getElementById('menuOptReplaceArea')) document.getElementById('menuOptReplaceArea').style.display = 'none';
+if (document.getElementById('menuOptEdit')) document.getElementById('menuOptEdit').style.display = 'block';
+if (document.getElementById('menuOptDuplicate')) document.getElementById('menuOptDuplicate').style.display = 'block';
+if (document.getElementById('menuOptInfo')) document.getElementById('menuOptInfo').style.display = 'block';
+if (document.getElementById('menuOptDelete')) document.getElementById('menuOptDelete').style.display = 'block';
+
+const memoMenu = document.getElementById('memoMenu');
+if (memoMenu) memoMenu.style.display = 'none';
+// ▲ ここまで
+
 highlightPreviewText();
                 }
             }
