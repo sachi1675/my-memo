@@ -833,15 +833,24 @@
 
             /* 💡 強制左寄せ・右寄せ・2段配置を設定したHTML */
             item.innerHTML = `
-                <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
-                <div class="memo-info">
-                    <div class="memo-title">${highlight(displayTitle)}</div>
-                    <div class="memo-meta">
-                        <span>${displayDate}</span>
-                        <span>${memo.folder || '未分類'}</span>
+                <div style="display: flex; align-items: center; width: 100%; gap: 10px; text-align: left;">
+                    <!-- チェックボックス -->
+                    <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;">
+                    
+                    <!-- タイトル（左側・余った領域を全部使う） -->
+                    <div style="flex: 1; min-width: 0; text-align: left;">
+                        <div style="font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; margin: 0;">${highlight(displayTitle)}</div>
                     </div>
+                    
+                    <!-- 日付とフォルダ（右側・右寄せ固定） -->
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; text-align: right;">
+                        <span style="color: #666; font-size: 11px; white-space: nowrap; text-align: right;">${displayDate}</span>
+                        <span style="color: #888; font-size: 11px; white-space: nowrap; text-align: right;">${memo.folder || '未分類'}</span>
+                    </div>
+                    
+                    ${orderBtnHtml}
                 </div>
-                ${orderBtnHtml}`;
+            `;
             list.appendChild(item);
         });
     }
