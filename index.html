@@ -1506,28 +1506,32 @@ window.addEventListener('popstate', (e) => {
                     history.pushState({ type: 'edit_mode' }, null, '');
                     confirmOverlay.classList.add('open');
                 } else {
-                    // 変更がなければ詳細画面（プレビュー）に戻す
-                    document.getElementById('editArea').style.display = 'none';
-                    document.getElementById('previewArea').style.display = 'block';
-                    
-                    const dragHandle = document.getElementById('previewDragHandle');
-                    if (dragHandle) dragHandle.style.display = 'flex';
-                    
-                    const saveBtn = document.getElementById('headerSaveBtn');
-                    if (saveBtn) saveBtn.style.display = 'none';
-                    
-                    const viewHeader = document.getElementById('viewModeHeader');
-                    if (viewHeader) viewHeader.innerText = 'メモ詳細';
+     // 変更がなければ詳細画面（プレビュー）に戻す
+document.getElementById('editArea').style.display = 'none';
+document.getElementById('previewArea').style.display = 'block';
 
-                    // メニュー項目をプレビュー用に復元
-                    ['menuOptEdit', 'menuOptDuplicate', 'menuOptInfo', 'menuOptDelete'].forEach(id => {
-                        const el = document.getElementById(id);
-                        if (el) el.style.display = 'block';
-                    });
+const dragHandle = document.getElementById('previewDragHandle');
+if (dragHandle) dragHandle.style.display = 'flex';
 
-                    if (typeof highlightPreviewText === 'function') {
-                        highlightPreviewText();
-                    }
+const saveBtn = document.getElementById('headerSaveBtn');
+if (saveBtn) saveBtn.style.display = 'none';
+
+const viewHeader = document.getElementById('viewModeHeader');
+if (viewHeader) viewHeader.innerText = 'メモ詳細';
+
+// ★置換エリア（検索・置換）を確実に非表示にする
+const replaceArea = document.getElementById('menuOptReplaceArea');
+if (replaceArea) replaceArea.style.display = 'none';
+
+// メニュー項目（編集、複製、詳細情報、削除）をプレビュー用に復元して表示
+['menuOptEdit', 'menuOptDuplicate', 'menuOptInfo', 'menuOptDelete'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'block';
+});
+
+if (typeof highlightPreviewText === 'function') {
+    highlightPreviewText();
+}
                 }
             }
             return;
