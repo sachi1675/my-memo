@@ -1431,12 +1431,6 @@ function replaceText() {
 
 // ① スマホの「戻る」ボタン/ジェスチャー処理（Opera最適化・完全版）
 window.addEventListener('popstate', (e) => {
-    // 【安全ガード】戻る動作が走ったら、開いているポップアップやメニューを無条件で確実に閉じる
-    ['optionsMenu', 'memoMenu', 'menuOptReplaceArea'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
-
     const sidebar = document.getElementById('sidebar');
     const confirmOverlay = document.getElementById('customConfirmOverlay');
     const infoModal = document.getElementById('infoModalOverlay');
@@ -1450,7 +1444,31 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
-    // 2. サブモーダル・サイドバーを閉じる
+    // 2. 「︙」メニューまたは置換エリアが開いている場合は【メニューだけを閉じて処理を終了】する
+    const optionsMenu = document.getElementById('optionsMenu');
+    const memoMenu = document.getElementById('memoMenu');
+    const replaceArea = document.getElementById('menuOptReplaceArea');
+
+    let menuClosed = false;
+    if (optionsMenu && optionsMenu.style.display === 'block') {
+        optionsMenu.style.display = 'none';
+        menuClosed = true;
+    }
+    if (memoMenu && memoMenu.style.display === 'block') {
+        memoMenu.style.display = 'none';
+        menuClosed = true;
+    }
+    if (replaceArea && replaceArea.style.display === 'block') {
+        replaceArea.style.display = 'none';
+        menuClosed = true;
+    }
+
+    // メニューを閉じた場合は、画面遷移させずにここで止める
+    if (menuClosed) {
+        return;
+    }
+
+    // 3. サブモーダル・サイドバーを閉じる
     if (infoModal && infoModal.classList.contains('open')) { infoModal.classList.remove('open'); return; }
     if (folderModal && folderModal.classList.contains('open')) { folderModal.classList.remove('open'); renderMemos(); return; }
     if (bulkMoveModal && bulkMoveModal.classList.contains('open')) { bulkMoveModal.classList.remove('open'); return; }
@@ -1461,7 +1479,7 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
-    // 3. 詳細・編集画面が開いている場合
+    // 4. 詳細・編集画面が開いている場合
     if (editorModal && editorModal.classList.contains('open')) {
         // 現在「編集モード」の場合
         if (document.getElementById('editArea').style.display === 'flex') {
@@ -1512,7 +1530,7 @@ window.addEventListener('popstate', (e) => {
         }
     }
 
-    // 4. 検索中ならクリア
+    // 5. 検索中ならクリア
     if (typeof isSearchActiveState !== 'undefined' && isSearchActiveState) {
         isSearchActiveState = false;
         const searchInput = document.getElementById('search');
@@ -1521,7 +1539,7 @@ window.addEventListener('popstate', (e) => {
         return;
     }
 
-    // 5. トップ画面での終了確認
+    // 6. トップ画面での終了確認
     const now = Date.now();
     if (typeof lastBackPressTime !== 'undefined' && now - lastBackPressTime < 2000) {
         window.close();
