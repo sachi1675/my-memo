@@ -1247,7 +1247,7 @@ function replaceText() {
 
         let titleHtml = '';
         if (titleText) {
-            titleHtml = `<div style="font-size: 20px; font-weight: bold; margin-bottom: 20px; border-left: 4px solid #3a4d5c; padding: 4px 0 4px 12px; color: #111; line-height: 1.3;">${escapeHtml(titleText)}</div>`;
+            titleHtml = `<div style="font-size: 18px; font-weight: bold; margin-bottom: 20px; border-left: 4px solid #3a4d5c; padding: 4px 0 4px 12px; color: #111; line-height: 1.3;">${escapeHtml(titleText)}</div>`;
         }
 
         if (!q) {
@@ -1265,7 +1265,7 @@ function replaceText() {
         if (titleText) {
             let escapedTitle = escapeHtml(titleText);
             let highlightedTitle = escapedTitle.replace(regex, '<mark style="background: #ffd54f; color: #000; border-radius: 2px; padding: 0 2px;">$1</mark>');
-            highlightedTitleHtml = `<div style="font-size: 20px; font-weight: bold; margin-bottom: 20px; border-left: 4px solid #3a4d5c; padding: 4px 0 4px 12px; color: #111; line-height: 1.3;">${highlightedTitle}</div>`;
+            highlightedTitleHtml = `<div style="font-size: 18px; font-weight: bold; margin-bottom: 20px; border-left: 4px solid #3a4d5c; padding: 4px 0 4px 12px; color: #111; line-height: 1.3;">${highlightedTitle}</div>`;
         }
         
         previewArea.innerHTML = highlightedTitleHtml + `<div style="font-size: 15px; line-height: 1.7; color: #333; white-space: pre-wrap; font-family: sans-serif;">${highlightedBody}</div>`;
