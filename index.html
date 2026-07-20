@@ -230,6 +230,48 @@
         .drag-handle-container:active .drag-handle {
             background-color: #888;
         }
+/* --- センタリング強力解除パッチ --- */
+#memoList, #memoList * {
+    text-align: left;
+}
+
+#memoList .memo-item {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    text-align: left !important;
+}
+
+#memoList .memo-info {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    margin-left: 10px !important;
+    text-align: left !important;
+}
+
+#memoList .memo-title {
+    text-align: left !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+#memoList .memo-meta {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    text-align: right !important;
+}
+
+#memoList .memo-meta span {
+    text-align: right !important;
+}
     </style>
 </head>
 <body>
