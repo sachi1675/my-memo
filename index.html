@@ -304,27 +304,23 @@
                 <button class="bulk-btn" id="bulkMoveBtn" onclick="moveSelectedMemos()">移動</button>
             </div>
         </header>
-        <div class="memo-list" id="memoList"></div>
-        <!-- 💡 📋をシンプルな記号「⇩」に変更！文字サイズと位置も微調整しています -->
-        <button class="fab clipboard-fab" onclick="createMemoFromClipboard()" style="right: 90px; background-color: #5c7285; font-size: 22px; line-height: 48px;">⇩</button>
-        <button class="fab" onclick="openEditor()">+</button>
-        <!-- FAB（＋ボタン）と選択メニューのエリア -->
-<div id="fabContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
-    <!-- ＋ボタンを押した時に開く選択メニュー -->
-    <div id="fabMenu" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 10px; align-items: flex-end;">
-        <button type="button" class="fab-option-btn" onclick="createMemo('text')" style="padding: 10px 16px; background: #fff; border: 1px solid #ccc; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; cursor: pointer;">
-            テキストメモを作成
-        </button>
-        <button type="button" class="fab-option-btn" onclick="createMemo('todo')" style="padding: 10px 16px; background: #fff; border: 1px solid #ccc; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; cursor: pointer;">
-            CheckList (ToDo) を作成
-        </button>
-    </div>
+<div class="memo-list" id="memoList"></div>
 
-    <!-- メインの＋ボタン（既存のボタンのonclickを変更） -->
-    <button type="button" id="fab" onclick="toggleFabMenu()" style="width: 56px; height: 56px; border-radius: 50%; background: var(--accent-color, #007aff); color: #fff; border: none; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;">
-        ＋
+<!-- ＋ボタンの上に表示される選択メニュー（デザインに干渉しないよう最小限の配置指定のみ） -->
+<div id="fabMenu" style="display: none; position: fixed; bottom: 80px; right: 20px; flex-direction: column; gap: 10px; align-items: flex-end; z-index: 1000;">
+    <button type="button" onclick="createMemo('text')" style="padding: 10px 16px; background: #fff; border: 1px solid #ccc; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; cursor: pointer;">
+        テキストメモを作成
+    </button>
+    <button type="button" onclick="createMemo('todo')" style="padding: 10px 16px; background: #fff; border: 1px solid #ccc; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; cursor: pointer;">
+        CheckList (ToDo) を作成
     </button>
 </div>
+
+<!-- 元のクリップボードボタン（変更なし） -->
+<button class="fab clipboard-fab" onclick="createMemoFromClipboard()" style="right: 90px; background-color: #5c7285; font-size: 22px; line-height: 48px;">⇩</button>
+
+<!-- 元の＋ボタン（クラスや元のスタイルはそのまま維持し、onclickのみ変更） -->
+<button class="fab" onclick="toggleFabMenu()">+</button>
 
     </div>
 
@@ -346,16 +342,19 @@
                 <select class="editor-folder-select" id="editorFolder" onchange="onFolderChange()"></select>
             </div>
             
-            <!-- 既存の optionsMenu 内に追加してください -->
-<button onclick="setAllTodosCompleted(true); document.getElementById('optionsMenu').style.display='none';">すべて完了に</button>
-<button onclick="setAllTodosCompleted(false); document.getElementById('optionsMenu').style.display='none';">すべて未完了に</button>
-<button onclick="removeCompletedTodos(); document.getElementById('optionsMenu').style.display='none';">完了済みを削除</button>
+            <!-- チェックリスト専用の操作ボタンエリア -->
+            <div class="todo-only" style="padding:10px; border-bottom:1px solid #eee; display:none; flex-direction:column; gap:5px; background:#f9f9f9;">
+                <button type="button" class="btn" style="font-size:12px; padding:4px;" onclick="setAllTodosCompleted(true); document.getElementById('optionsMenu').style.display='none';">すべて完了に</button>
+                <button type="button" class="btn" style="font-size:12px; padding:4px;" onclick="setAllTodosCompleted(false); document.getElementById('optionsMenu').style.display='none';">すべて未完了に</button>
+                <button type="button" class="btn" style="font-size:12px; padding:4px;" onclick="removeCompletedTodos(); document.getElementById('optionsMenu').style.display='none';">完了済みを削除</button>
+            </div>
 
             <div id="menuOptDuplicate" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="duplicateMemo()">メモを複製</div>
             <div id="menuOptInfo" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="showInfoModal()">詳細情報</div>
             <div id="menuOptDelete" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer; color:var(--danger-color);" onclick="deleteCurrentMemo()">削除</div>
             
-            <div id="menuOptReplaceArea" style="padding:10px; display:none; flex-direction:column; gap:5px; background:#f9f9f9;">
+            <!-- 普通のメモ専用の検索・置換エリア -->
+            <div id="menuOptReplaceArea" class="text-only" style="padding:10px; display:none; flex-direction:column; gap:5px; background:#f9f9f9;">
                 <input type="text" id="findText" placeholder="検索" style="width:100%; padding:4px; font-size:12px;">
                 <input type="text" id="replaceText" placeholder="置換" style="width:100%; padding:4px; font-size:12px;">
                 <button class="btn" onclick="replaceText()" style="font-size:12px; padding:2px;">置換を実行</button>
@@ -608,19 +607,31 @@ let folders = savedFolders !== null ? JSON.parse(savedFolders) : [
         });
     }
 
-    document.addEventListener('click', function(e) {
-        const sidebar = document.getElementById('sidebar');
-        const menuBtn = document.querySelector('.menu-btn');
-        const optionsMenu = document.getElementById('optionsMenu');
-        const optionsMenuBtn = document.getElementById('optionsMenuBtn');
+document.addEventListener('click', function(e) {
+    const sidebar = document.getElementById('sidebar');
+    const menuBtn = document.querySelector('.menu-btn');
+    const optionsMenu = document.getElementById('optionsMenu');
+    const optionsMenuBtn = document.getElementById('optionsMenuBtn');
+    
+    // ★ 追加：FAB（＋ボタン）メニュー用
+    const fabMenu = document.getElementById('fabMenu');
+    const fabBtn = e.target.closest('.fab');
 
-        if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== menuBtn) {
-            toggleMenu();
-        }
-        if (optionsMenu.style.display === 'block' && !optionsMenu.contains(e.target) && e.target !== optionsMenuBtn) {
-            optionsMenu.style.display = 'none';
-        }
-    });
+    // 既存機能：サイドバーの外側をタップしたら閉じる
+    if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== menuBtn) {
+        toggleMenu();
+    }
+    
+    // 既存機能：オプションメニュー（︙）の外側をタップしたら閉じる
+    if (optionsMenu && optionsMenu.style.display === 'block' && !optionsMenu.contains(e.target) && e.target !== optionsMenuBtn) {
+        optionsMenu.style.display = 'none';
+    }
+
+    // ★ 追加機能：＋ボタンメニューの外側をタップしたら閉じる
+    if (fabMenu && fabMenu.style.display !== 'none' && !fabMenu.contains(e.target) && !fabBtn) {
+        fabMenu.style.display = 'none';
+    }
+});
 
     document.getElementById('previewArea').addEventListener('dblclick', function() {
         switchToEditMode();
@@ -1191,19 +1202,49 @@ function editHeader(oldName) {
     }
 
 function toggleOptionsMenu(e) {
-    e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     const menu = document.getElementById('optionsMenu');
-    
+    if (!menu) return;
+
     // 現在閉じていて、これから開く場合
     if (menu.style.display !== 'block') {
+        
+        // --- ★ メモの種類（テキスト / チェックリスト）の判定処理 ---
+        let isTodo = false;
+
+        // 1. 編集画面が開いている場合
+        const todoContainer = document.getElementById('todoEditContainer');
+        if (todoContainer && todoContainer.style.display !== 'none') {
+            isTodo = true;
+        }
+
+        // 2. プレビュー（閲覧）画面が開いている場合
+        if (typeof editingMemoId !== 'undefined' && editingMemoId) {
+            const currentMemo = memos.find(m => m.id === editingMemoId);
+            if (currentMemo && currentMemo.type === 'todo') {
+                isTodo = true;
+            }
+        }
+
+        // 表示の切り替え（.todo-only と .text-only）
+        const todoElements = menu.querySelectorAll('.todo-only');
+        const textElements = menu.querySelectorAll('.text-only');
+
+        todoElements.forEach(el => el.style.display = isTodo ? 'flex' : 'none');
+        textElements.forEach(el => el.style.display = isTodo ? 'none' : 'flex');
+        // --------------------------------------------------
+
         menu.style.display = 'block';
-        // ★ メニュー用の履歴を1つ積んでおく
+        
+        // 既存機能：メニュー用の履歴を1つ積んでおく
         history.pushState({ type: 'menu' }, null, '');
+        
     } else {
         // すでに開いていて、ボタン再タップで閉じる場合
         menu.style.display = 'none';
     }
 }
+
     function onFolderChange() {
         const folderValue = document.getElementById('editorFolder').value;
         if (editingMemoId) {
@@ -1858,21 +1899,40 @@ function createMemoFromClipboard() {
 // 1. 新しい項目を追加する処理
 function addTodoItem() {
     const input = document.getElementById('newTodoInput');
+    if (!input) return;
+    
     const text = input.value.trim();
     if (!text) return;
 
-    const currentMemo = memos.find(m => m.id === editingMemoId);
-    if (!currentMemo) return;
+    // グローバル変数 todoItems の確認・初期化
+    if (typeof todoItems === 'undefined' || !Array.isArray(todoItems)) {
+        window.todoItems = [];
+    }
 
-    if (!currentMemo.items) currentMemo.items = [];
-
-    currentMemo.items.push({
-        id: Date.now(),
-        text: text,
-        completed: false,
-        note: '',
-        subtasks: []
-    });
+    // メモ編集中（editingMemoIdが存在する）場合と、新規作成時の両方に対応
+    if (editingMemoId) {
+        const currentMemo = memos.find(m => m.id === editingMemoId);
+        if (currentMemo) {
+            if (!currentMemo.items) currentMemo.items = [];
+            currentMemo.items.push({
+                id: Date.now(),
+                text: text,
+                completed: false,
+                note: '',
+                subtasks: []
+            });
+            todoItems = currentMemo.items;
+        }
+    } else {
+        // 新規作成時は一時配列 todoItems に追加
+        todoItems.push({
+            id: Date.now(),
+            text: text,
+            completed: false,
+            note: '',
+            subtasks: []
+        });
+    }
 
     input.value = '';
     isChanged = true;
