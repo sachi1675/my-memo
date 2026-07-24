@@ -680,18 +680,6 @@ function renderStructure() {
     });
 }
 
-                    bulkFolderSelect.appendChild(bulkOpt);
-                }
-
-                const mfItem = document.createElement('div');
-                mfItem.className = 'manage-list-item';
-                let hOptions = headers.map(head => '<option value="' + head + '" ' + (head===h?'selected':'') + '>' + head + '</option>').join('');
-                mfItem.innerHTML = '<div><strong>' + f.name + '</strong><select onchange="changeFolderHeader(\'' + f.name + '\', this.value)" style="font-size:12px; margin-left:10px;">' + hOptions + '</select></div><div class="btn-group"><button class="move-btn" onclick="moveFolder(' + realIdx + ', -1, \'' + h + '\')">▲</button><button class="move-btn" onclick="moveFolder(' + realIdx + ', 1, \'' + h + '\')">▼</button><button class="del-btn" onclick="deleteFolder(\'' + f.name + '\')">削除</button></div>';
-                manageFolderList.appendChild(mfItem);
-            });
-        });
-    }
-
     function moveHeader(index, direction) {
         const targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= headers.length) return;
