@@ -472,15 +472,17 @@
 
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwS0rFOUFkEGvgzG4vEfjipAoRgbK9LRLwMh1Bxp8je7UCtnNAvpaUkN-rLAOhSKYN6/exec";
     
-    // データの読み込み
-    let memos = JSON.parse(localStorage.getItem('my_memos_v4')) || []; 
-    let headers = JSON.parse(localStorage.getItem('my_headers_v4')) || ['生活便利メモ', '一般ノート'];
-    let folders = JSON.parse(localStorage.getItem('my_folders_v4')) || [
-        { name: '口座番号管理', header: '生活便利メモ' },
-        { name: '買い物リスト', header: '生活便利メモ' },
-        { name: '誕生日リスト', header: '生活便利メモ' },
-        { name: 'テキストノート', header: '一般ノート' }
-    ];
+// データの読み込み（1度でも保存された事があれば、空配列でもそれを優先する）
+const savedHeaders = localStorage.getItem('my_headers_v4');
+let headers = savedHeaders !== null ? JSON.parse(savedHeaders) : ['生活便利メモ', '一般ノート'];
+
+const savedFolders = localStorage.getItem('my_folders_v4');
+let folders = savedFolders !== null ? JSON.parse(savedFolders) : [
+    { name: '口座番号管理', header: '生活便利メモ' },
+    { name: '買い物リスト', header: '生活便利メモ' },
+    { name: '誕生日リスト', header: '生活便利メモ' },
+    { name: 'テキストノート', header: '一般ノート' }
+];
 
     let currentFolder = 'all';
     let editingMemoId = null;
