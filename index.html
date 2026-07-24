@@ -606,66 +606,80 @@
         renderStructure();
     }
 
-    function renderStructure() {
-        const sidebar = document.getElementById('sidebarContent');
-        const editorSelect = document.getElementById('editorFolder');
-        const folderHeadSelect = document.getElementById('folderHeaderSelect');
-        const manageFolderList = document.getElementById('manageFolderList');
-        const manageHeaderList = document.getElementById('manageHeaderList');
-        const bulkFolderSelect = document.getElementById('bulkFolderSelect');
+function renderStructure() {
+    const sidebar = document.getElementById('sidebarContent');
+    const editorSelect = document.getElementById('editorFolder');
+    const folderHeadSelect = document.getElementById('folderHeaderSelect');
+    const manageFolderList = document.getElementById('manageFolderList');
+    const manageHeaderList = document.getElementById('manageHeaderList');
+    const bulkFolderSelect = document.getElementById('bulkFolderSelect');
 
-        sidebar.innerHTML = '';
-        editorSelect.innerHTML = '';
-        folderHeadSelect.innerHTML = '';
-        manageFolderList.innerHTML = '';
-        manageHeaderList.innerHTML = '';
-        if (bulkFolderSelect) bulkFolderSelect.innerHTML = '';
+    sidebar.innerHTML = '';
+    editorSelect.innerHTML = '';
+    folderHeadSelect.innerHTML = '';
+    manageFolderList.innerHTML = '';
+    manageHeaderList.innerHTML = '';
+    if (bulkFolderSelect) bulkFolderSelect.innerHTML = '';
 
-        const optNone = document.createElement('option');
-        optNone.value = '';
-        optNone.innerText = '未分類（指定なし）';
-        editorSelect.appendChild(optNone);
+    const optNone = document.createElement('option');
+    optNone.value = '';
+    optNone.innerText = '未分類（指定なし）';
+    editorSelect.appendChild(optNone);
 
-        if (bulkFolderSelect) {
-            const bulkOptNone = document.createElement('option');
-            bulkOptNone.value = '';
-            bulkOptNone.innerText = '未分類（指定なし）';
-            bulkFolderSelect.appendChild(bulkOptNone);
-        }
+    if (bulkFolderSelect) {
+        const bulkOptNone = document.createElement('option');
+        bulkOptNone.value = '';
+        bulkOptNone.innerText = '未分類（指定なし）';
+        bulkFolderSelect.appendChild(bulkOptNone);
+    }
 
-        headers.forEach(h => {
+    headers.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h; opt.innerText = h;
+        folderHeadSelect.appendChild(opt);
+    });
+
+    headers.forEach((h, hIdx) => {
+        const hEl = document.createElement('h3');
+        hEl.innerText = h;
+        sidebar.appendChild(hEl);
+
+        const mhItem = document.createElement('div');
+        mhItem.className = 'manage-list-item';
+        // ★ 見出し側に「編集」ボタンを追加
+        mhItem.innerHTML = '<span>' + h + '</span><div class="btn-group"><button class="move-btn" onclick="moveHeader(' + hIdx + ', -1)">▲</button><button class="move-btn" onclick="moveHeader(' + hIdx + ', 1)">▼</button><button class="move-btn" onclick="editHeader(\'' + h + '\')">✏️ 編集</button><button class="del-btn" onclick="deleteHeader(\'' + h + '\')">削除</button></div>';
+        manageHeaderList.appendChild(mhItem);
+
+        const subFolders = folders.filter(f => f.header === h);
+        subFolders.forEach((f, fIdx) => {
+            const realIdx = folders.findIndex(fold => fold.name === f.name);
+            const fEl = document.createElement('div');
+            fEl.className = 'folder-item folder-sub';
+            fEl.id = 'folder-' + f.name;
+            fEl.innerText = '└ ' + f.name;
+            fEl.onclick = () => selectFolder(f.name);
+            sidebar.appendChild(fEl);
+
             const opt = document.createElement('option');
-            opt.value = h; opt.innerText = h;
-            folderHeadSelect.appendChild(opt);
+            opt.value = f.name; opt.innerText = f.name;
+            editorSelect.appendChild(opt);
+
+            if (bulkFolderSelect) {
+                const bulkOpt = document.createElement('option');
+                bulkOpt.value = f.name; bulkOpt.innerText = f.name;
+                bulkFolderSelect.appendChild(bulkOpt);
+            }
+
+            const mfItem = document.createElement('div');
+            mfItem.className = 'manage-list-item';
+            let hOptions = headers.map(head => '<option value="' + head + '" ' + (head===h?'selected':'') + '>' + head + '</option>').join('');
+            // ★ フォルダ側に「編集」ボタンを追加
+            mfItem.innerHTML = '<div><strong>' + f.name + '</strong><select onchange="changeFolderHeader(\'' + f.name + '\', this.value)" style="font-size:12px; margin-left:10px;">' + hOptions + '</select></div><div class="btn-group"><button class="move-btn" onclick="moveFolder(' + realIdx + ', -1, \'' + h + '\')">▲</button><button class="move-btn" onclick="moveFolder(' + realIdx + ', 1, \'' + h + '\')">▼</button><button class="move-btn" onclick="editFolder(\'' + f.name + '\')">✏️ 編集</button><button class="del-btn" onclick="deleteFolder(\'' + f.name + '\')">削除</button></div>';
+            manageFolderList.appendChild(mfItem);
         });
+    });
+}
 
-        headers.forEach((h, hIdx) => {
-            const hEl = document.createElement('h3');
-            hEl.innerText = h;
-            sidebar.appendChild(hEl);
-
-            const mhItem = document.createElement('div');
-            mhItem.className = 'manage-list-item';
-            mhItem.innerHTML = '<span>' + h + '</span><div class="btn-group"><button class="move-btn" onclick="moveHeader(' + hIdx + ', -1)">▲</button><button class="move-btn" onclick="moveHeader(' + hIdx + ', 1)">▼</button><button class="del-btn" onclick="deleteHeader(\'' + h + '\')">削除</button></div>';
-            manageHeaderList.appendChild(mhItem);
-
-            const subFolders = folders.filter(f => f.header === h);
-            subFolders.forEach((f, fIdx) => {
-                const realIdx = folders.findIndex(fold => fold.name === f.name);
-                const fEl = document.createElement('div');
-                fEl.className = 'folder-item folder-sub';
-                fEl.id = 'folder-' + f.name;
-                fEl.innerText = '└ ' + f.name;
-                fEl.onclick = () => selectFolder(f.name);
-                sidebar.appendChild(fEl);
-
-                const opt = document.createElement('option');
-                opt.value = f.name; opt.innerText = f.name;
-                editorSelect.appendChild(opt);
-
-                if (bulkFolderSelect) {
-                    const bulkOpt = document.createElement('option');
-                    bulkOpt.value = f.name; bulkOpt.innerText = f.name;
                     bulkFolderSelect.appendChild(bulkOpt);
                 }
 
@@ -715,15 +729,78 @@
         renderStructure();
     }
 
-    function deleteHeader(name) {
-        if(confirm('見出し「' + name + '」を削除しますか？')) {
-            headers = headers.filter(h => h !== name);
-            localStorage.setItem('my_headers_v4', JSON.stringify(headers));
-            folders.forEach(f => { if(f.header === name) f.header = headers[0] || ''; });
-            localStorage.setItem('my_folders_v4', JSON.stringify(folders));
-            renderStructure();
+function deleteHeader(name) {
+    if (confirm('見出し「' + name + '」を削除しますか？\n（所属するフォルダは「未分類」に移動します）')) {
+        // 1. 見出し一覧から削除
+        headers = headers.filter(h => h !== name);
+
+        // 2. 削除した見出しに所属していたフォルダを「未分類」へ移動
+        folders.forEach(f => {
+            if (f.header === name) {
+                f.header = '未分類';
+            }
+        });
+
+        // 3. 「未分類」が見出し一覧に無ければ自動で追加する
+        if (!headers.includes('未分類')) {
+            headers.push('未分類');
         }
+
+        // 4. データを保存して再描画
+        localStorage.setItem('my_headers_v4', JSON.stringify(headers));
+        localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+        renderStructure();
     }
+}
+
+    // フォルダ名の編集
+function editFolder(oldName) {
+    const newName = prompt('新しいフォルダ名を入力してください:', oldName);
+    if (newName && newName.trim() !== '' && newName !== oldName) {
+        const trimmedName = newName.trim();
+
+        // 1. フォルダ一覧の名称を変更
+        folders.forEach(f => {
+            if (f.name === oldName) f.name = trimmedName;
+        });
+
+        // 2. メモが持っているフォルダ名も一括更新
+        memos.forEach(m => {
+            if (m.folder === oldName) m.folder = trimmedName;
+        });
+
+        // 3. 選択中フォルダの更新
+        if (currentFolder === oldName) currentFolder = trimmedName;
+
+        // 4. 保存と再描画
+        localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+        saveAllMemos();
+        renderStructure();
+        renderMemos();
+    }
+}
+
+// 見出し名の編集
+function editHeader(oldName) {
+    const newName = prompt('新しい見出し名を入力してください:', oldName);
+    if (newName && newName.trim() !== '' && newName !== oldName) {
+        const trimmedName = newName.trim();
+
+        // 1. 見出し一覧の名称を変更
+        const index = headers.indexOf(oldName);
+        if (index !== -1) headers[index] = trimmedName;
+
+        // 2. フォルダが持っている親見出し名も一括更新
+        folders.forEach(f => {
+            if (f.header === oldName) f.header = trimmedName;
+        });
+
+        // 3. 保存と再描画
+        localStorage.setItem('my_headers_v4', JSON.stringify(headers));
+        localStorage.setItem('my_folders_v4', JSON.stringify(folders));
+        renderStructure();
+    }
+}
 
     function addFolder() {
         const input = document.getElementById('newFolderName');
