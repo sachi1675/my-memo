@@ -327,6 +327,12 @@
                 <span style="font-size: 12px; color: #666; font-weight:bold;">フォルダ変更:</span>
                 <select class="editor-folder-select" id="editorFolder" onchange="onFolderChange()"></select>
             </div>
+            
+            <!-- 既存の optionsMenu 内に追加してください -->
+<button onclick="setAllTodosCompleted(true); document.getElementById('optionsMenu').style.display='none';">すべて完了に</button>
+<button onclick="setAllTodosCompleted(false); document.getElementById('optionsMenu').style.display='none';">すべて未完了に</button>
+<button onclick="removeCompletedTodos(); document.getElementById('optionsMenu').style.display='none';">完了済みを削除</button>
+
             <div id="menuOptDuplicate" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="duplicateMemo()">メモを複製</div>
             <div id="menuOptInfo" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer;" onclick="showInfoModal()">詳細情報</div>
             <div id="menuOptDelete" style="padding:10px; border-bottom:1px solid #eee; cursor:pointer; color:var(--danger-color);" onclick="deleteCurrentMemo()">削除</div>
@@ -349,10 +355,30 @@
 
         <div id="previewArea" style="display:none; padding:18px; font-size:16px; line-height:1.6; overflow-y:auto; flex:1;"></div>
 
-        <div id="editArea" style="display:flex; flex-direction:column; flex:1;">
+       <div id="editArea" style="display:flex; flex-direction:column; flex:1;">
             <div class="editor-counter-header" id="editorCounterHeader">文字数: 0 | 更新日: 今日</div>
             <input type="text" class="editor-title" id="editorTitle" placeholder="タイトルを入力..." oninput="onEditorInput()">
             <textarea class="editor-body" id="editorBody" placeholder="ここにメモを入力..." oninput="onEditorInput()"></textarea>
+
+            <!-- ▼ ここから追加 ▼ -->
+            <div id="todoEditContainer" style="display: none; padding: 10px;">
+              <!-- ① 新しい項目を追加する入力バー -->
+              <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                <input type="text" id="newTodoInput" placeholder="+ 新しい項目を追加..." style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                <button id="addTodoBtn" style="padding: 10px 15px; border: none; background: #333; color: #fff; border-radius: 6px;">追加</button>
+              </div>
+
+              <!-- ② 未完了のタスクリスト -->
+              <div id="todoList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+
+              <!-- ③ 完了済みのタスクリスト（折りたたみ） -->
+              <details style="margin-top: 20px;">
+                <summary style="color: #777; cursor: pointer; padding: 5px 0;">完了済み項目</summary>
+                <div id="completedTodoList" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;"></div>
+              </details>
+            </div>
+            <!-- ▲ ここまで追加 ▲ -->
+
         </div>
     </div>
 
@@ -1811,7 +1837,343 @@ function createMemoFromClipboard() {
     
     showToast("テキストを取り込みました！");
 }
+
+    // --- チェックリスト機能の処理 ---
+
+// 1. 新しい項目を追加する処理
+function addTodoItem() {
+    const input = document.getElementById('newTodoInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const currentMemo = memos.find(m => m.id === editingMemoId);
+    if (!currentMemo) return;
+
+    if (!currentMemo.items) currentMemo.items = [];
+
+    currentMemo.items.push({
+        id: Date.now(),
+        text: text,
+        completed: false,
+        note: '',
+        subtasks: []
+    });
+
+    input.value = '';
+    isChanged = true;
+    renderTodoItems();
+}
+
+// 2. 追加ボタンやEnterキーのイベント設定
+document.addEventListener('DOMContentLoaded', () => {
+    const addBtn = document.getElementById('addTodoBtn');
+    const input = document.getElementById('newTodoInput');
+
+    if (addBtn) addBtn.onclick = addTodoItem;
+    if (input) {
+        input.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addTodoItem();
+            }
+        };
+    }
+});
+
+// 3. チェックリスト画面の描画処理
+function renderTodoItems() {
+    const todoList = document.getElementById('todoList');
+    const completedList = document.getElementById('completedTodoList');
+    if (!todoList || !completedList) return;
+
+    todoList.innerHTML = '';
+    completedList.innerHTML = '';
+
+    const currentMemo = memos.find(m => m.id === editingMemoId);
+    if (!currentMemo || !currentMemo.items) return;
+
+    currentMemo.items.forEach((item, index) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0;';
+
+        // チェックボックス（完了判定）
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.completed;
+        checkbox.style.cursor = 'pointer';
+        checkbox.onchange = () => {
+            item.completed = checkbox.checked;
+            isChanged = true;
+            renderTodoItems();
+        };
+
+        // タスク名（テキスト）
+        const textSpan = document.createElement('span');
+        textSpan.innerText = item.text;
+        textSpan.style.cssText = 'flex: 1; cursor: pointer;';
+        textSpan.onclick = () => openTodoDetailModal(index);
+        if (item.completed) {
+            textSpan.style.textDecoration = 'line-through';
+            textSpan.style.color = '#999';
+        }
+
+        // 並び替えボタン（▲▼）
+        const orderBtns = document.createElement('div');
+        orderBtns.style.cssText = 'display: flex; gap: 4px;';
+        
+        const upBtn = document.createElement('button');
+        upBtn.innerText = '▲';
+        upBtn.onclick = () => moveTodoItem(index, -1);
+        
+        const downBtn = document.createElement('button');
+        downBtn.innerText = '▼';
+        downBtn.onclick = () => moveTodoItem(index, 1);
+
+        orderBtns.appendChild(upBtn);
+        orderBtns.appendChild(downBtn);
+
+        // 削除ボタン（✕）
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerText = '✕';
+        deleteBtn.style.cssText = 'border: none; background: transparent; color: #999; cursor: pointer; padding: 0 4px;';
+        deleteBtn.onclick = () => {
+            currentMemo.items.splice(index, 1);
+            isChanged = true;
+            renderTodoItems();
+        };
+
+        itemDiv.appendChild(checkbox);
+        itemDiv.appendChild(textSpan);
+        itemDiv.appendChild(orderBtns);
+        itemDiv.appendChild(deleteBtn);
+
+        if (item.completed) {
+            completedList.appendChild(itemDiv);
+        } else {
+            todoList.appendChild(itemDiv);
+        }
+    });
+}
+
+// 4. 項目の並び替え処理
+function moveTodoItem(index, direction) {
+    const currentMemo = memos.find(m => m.id === editingMemoId);
+    if (!currentMemo || !currentMemo.items) return;
+
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= currentMemo.items.length) return;
+
+    const targetItem = currentMemo.items.splice(index, 1)[0];
+    currentMemo.items.splice(newIndex, 0, targetItem);
+    isChanged = true;
+    renderTodoItems();
+}
+// --- 詳細モーダルの操作 & 一括操作メニュー処理 ---
+
+let currentEditingTodoIndex = null; // 現在編集中のタスク番号
+
+// 1. タスク名をタップした時に詳細モーダルを開く
+function openTodoDetailModal(index) {
+    const currentMemo = memos.find(m => m.id === editingMemoId);
+    if (!currentMemo || !currentMemo.items || !currentMemo.items[index]) return;
+
+    currentEditingTodoIndex = index;
+    const item = currentMemo.items[index];
+
+    // モーダルの各入力欄に既存データをセット
+    document.getElementById('modalTodoTitle').value = item.text || '';
+    document.getElementById('modalTodoNote').value = item.note || '';
+    
+    renderSubtasks();
+
+    const modal = document.getElementById('todoDetailModal');
+    modal.style.display = 'flex';
+}
+
+// 2. モーダル内のサブタスクを描画する
+function renderSubtasks() {
+    const currentMemo = memos.find(m => m.id === editingMemoId);
+    if (currentEditingTodoIndex === null || !currentMemo) return;
+    
+    const item = currentMemo.items[currentEditingTodoIndex];
+    if (!item.subtasks) item.subtasks = [];
+
+    const subtaskList = document.getElementById('modalSubtaskList');
+    subtaskList.innerHTML = '';
+
+    item.subtasks.forEach((sub, subIdx) => {
+        const subDiv = document.createElement('div');
+        subDiv.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+        const subCheckbox = document.input = document.createElement('input');
+        subCheckbox.type = 'checkbox';
+        subCheckbox.checked = sub.completed;
+        subCheckbox.onchange = () => {
+            sub.completed = subCheckbox.checked;
+            isChanged = true;
+        };
+
+        const subInput = document.createElement('input');
+        subInput.type = 'text';
+        subInput.value = sub.text;
+        subInput.style.cssText = 'flex: 1; border: none; border-bottom: 1px dashed #ccc; outline: none; font-size: 14px;';
+        subInput.oninput = () => {
+            sub.text = subInput.value;
+            isChanged = true;
+        };
+
+        const subDeleteBtn = document.createElement('button');
+        subDeleteBtn.innerText = '✕';
+        subDeleteBtn.style.cssText = 'border: none; background: transparent; color: #999; cursor: pointer;';
+        subDeleteBtn.onclick = () => {
+            item.subtasks.splice(subIdx, 1);
+            isChanged = true;
+            renderSubtasks();
+        };
+
+        subDiv.appendChild(subCheckbox);
+        subDiv.appendChild(subInput);
+        subDiv.appendChild(subDeleteBtn);
+        subtaskList.appendChild(subDiv);
+    });
+}
+
+// 3. モーダル内のイベント設定（保存・サブタスク追加・削除）
+document.addEventListener('DOMContentLoaded', () => {
+    // タスク名入力時のリアルタイム保存
+    const titleInput = document.getElementById('modalTodoTitle');
+    if (titleInput) {
+        titleInput.oninput = () => {
+            const currentMemo = memos.find(m => m.id === editingMemoId);
+            if (currentMemo && currentEditingTodoIndex !== null) {
+                currentMemo.items[currentEditingTodoIndex].text = titleInput.value;
+                isChanged = true;
+                renderTodoItems();
+            }
+        };
+    }
+
+    // メモ入力時のリアルタイム保存
+    const noteInput = document.getElementById('modalTodoNote');
+    if (noteInput) {
+        noteInput.oninput = () => {
+            const currentMemo = memos.find(m => m.id === editingMemoId);
+            if (currentMemo && currentEditingTodoIndex !== null) {
+                currentMemo.items[currentEditingTodoIndex].note = noteInput.value;
+                isChanged = true;
+            }
+        };
+    }
+
+    // サブタスク追加ボタン
+    const addSubtaskBtn = document.getElementById('addSubtaskBtn');
+    if (addSubtaskBtn) {
+        addSubtaskBtn.onclick = () => {
+            const input = document.getElementById('newSubtaskInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const currentMemo = memos.find(m => m.id === editingMemoId);
+            if (currentMemo && currentEditingTodoIndex !== null) {
+                if (!currentMemo.items[currentEditingTodoIndex].subtasks) {
+                    currentMemo.items[currentEditingTodoIndex].subtasks = [];
+                }
+                currentMemo.items[currentEditingTodoIndex].subtasks.push({
+                    id: Date.now(),
+                    text: text,
+                    completed: false
+                });
+                input.value = '';
+                isChanged = true;
+                renderSubtasks();
+            }
+        };
+    }
+
+    // モーダル内のタスク削除ボタン
+    const deleteBtn = document.getElementById('modalDeleteBtn');
+    if (deleteBtn) {
+        deleteBtn.onclick = () => {
+            const currentMemo = memos.find(m => m.id === editingMemoId);
+            if (currentMemo && currentEditingTodoIndex !== null) {
+                currentMemo.items.splice(currentEditingTodoIndex, 1);
+                isChanged = true;
+                document.getElementById('todoDetailModal').style.display = 'none';
+                renderTodoItems();
+            }
+        };
+    }
+
+    // 完了（閉じる）ボタン
+    const closeBtn = document.getElementById('closeModalBtn');
+    if (closeBtn) {
+        closeBtn.onclick = () => {
+            document.getElementById('todoDetailModal').style.display = 'none';
+            renderTodoItems();
+        };
+    }
+});
+
+// --- ヘッダー「⋮」一括操作メニュー機能 ---
+
+// すべて完了にする
+function setAllTodosCompleted(status) {
+    const currentMemo = memos.find(m => m.id === editingMemoId);
+    if (!currentMemo || !currentMemo.items) return;
+
+    currentMemo.items.forEach(item => {
+        item.completed = status;
+    });
+    isChanged = true;
+    renderTodoItems();
+}
+
+// 完了済みをまとめて削除する
+function removeCompletedTodos() {
+    const currentMemo = memos.find(m => m.id === editingMemoId);
+    if (!currentMemo || !currentMemo.items) return;
+
+    currentMemo.items = currentMemo.items.filter(item => !item.completed);
+    isChanged = true;
+    renderTodoItems();
+}
+
 </script>
+<!-- ▼ タスク詳細・サブタスク編集モーダル ▼ -->
+<div id="todoDetailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: flex-end; justify-content: center;">
+  <div style="background: #fff; width: 100%; max-width: 500px; border-top-left-radius: 16px; border-top-right-radius: 16px; padding: 20px; box-sizing: border-box; max-height: 80vh; overflow-y: auto;">
+    
+    <!-- ヘッダー（タイトル入力と削除） -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+      <input type="text" id="modalTodoTitle" placeholder="タスク名..." style="font-size: 18px; font-weight: bold; border: none; border-bottom: 1px solid #ddd; width: 80%; padding: 4px 0; outline: none;">
+      <button id="modalDeleteBtn" style="border: none; background: transparent; font-size: 18px; cursor: pointer;">🗑️</button>
+    </div>
+
+    <!-- メモ入力欄 -->
+    <div style="margin-bottom: 15px;">
+      <label style="font-size: 12px; color: #777;">メモ</label>
+      <textarea id="modalTodoNote" placeholder="ここにメモを書けます" style="width: 100%; border: 1px solid #eee; border-radius: 6px; padding: 8px; margin-top: 4px; box-sizing: border-box; resize: vertical; min-height: 60px; font-size: 14px;"></textarea>
+    </div>
+
+    <!-- サブタスク領域 -->
+    <div style="margin-bottom: 20px;">
+      <label style="font-size: 12px; color: #777;">サブタスク</label>
+      <div id="modalSubtaskList" style="display: flex; flex-direction: column; gap: 6px; margin: 8px 0;"></div>
+      
+      <div style="display: flex; gap: 8px; margin-top: 8px;">
+        <input type="text" id="newSubtaskInput" placeholder="ここにサブタスクを追加できます" style="flex: 1; border: 1px solid #eee; border-radius: 6px; padding: 6px 10px; font-size: 14px;">
+        <button id="addSubtaskBtn" style="border: 1px solid #ccc; background: #f9f9f9; border-radius: 6px; padding: 6px 12px; font-size: 14px; cursor: pointer;">＋ サブタスクを追加</button>
+      </div>
+    </div>
+
+    <!-- 閉じる/保存ボタン -->
+    <div style="text-align: right;">
+      <button id="closeModalBtn" style="background: #333; color: #fff; border: none; border-radius: 6px; padding: 8px 20px; font-size: 14px; cursor: pointer;">完了</button>
+    </div>
+
+  </div>
+</div>
+<!-- ▲ ここまで追加 ▲ -->
 
 </body>
 </html>
