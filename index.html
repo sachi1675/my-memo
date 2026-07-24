@@ -308,6 +308,24 @@
         <!-- 💡 📋をシンプルな記号「⇩」に変更！文字サイズと位置も微調整しています -->
         <button class="fab clipboard-fab" onclick="createMemoFromClipboard()" style="right: 90px; background-color: #5c7285; font-size: 22px; line-height: 48px;">⇩</button>
         <button class="fab" onclick="openEditor()">+</button>
+        <!-- FAB（＋ボタン）と選択メニューのエリア -->
+<div id="fabContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <!-- ＋ボタンを押した時に開く選択メニュー -->
+    <div id="fabMenu" style="display: none; flex-direction: column; gap: 10px; margin-bottom: 10px; align-items: flex-end;">
+        <button type="button" class="fab-option-btn" onclick="createMemo('text')" style="padding: 10px 16px; background: #fff; border: 1px solid #ccc; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; cursor: pointer;">
+            テキストメモを作成
+        </button>
+        <button type="button" class="fab-option-btn" onclick="createMemo('todo')" style="padding: 10px 16px; background: #fff; border: 1px solid #ccc; border-radius: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; cursor: pointer;">
+            CheckList (ToDo) を作成
+        </button>
+    </div>
+
+    <!-- メインの＋ボタン（既存のボタンのonclickを変更） -->
+    <button type="button" id="fab" onclick="toggleFabMenu()" style="width: 56px; height: 56px; border-radius: 50%; background: var(--accent-color, #007aff); color: #fff; border: none; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;">
+        ＋
+    </button>
+</div>
+
     </div>
 
     <div class="modal" id="editorModal">
@@ -1224,51 +1242,48 @@ function toggleOptionsMenu(e) {
         updateCharCount();
     }
 
-    async function saveMemo() {
-        const title = document.getElementById('editorTitle').value.trim();
-        const content = document.getElementById('editorBody').value;
-        const folder = document.getElementById('editorFolder').value;
-        
-        if (!content.trim() && !title.trim()) {
-            showToast("内容がありません。");
-            return;
-        }
+async function saveMemo() {
+    const title = document.getElementById('editorTitle').value.trim();
+    const content = document.getElementById('editorBody').value;
+    const folder = document.getElementById('editorFolder').value;
+    
+    const todoContainer = document.getElementById('todoEditContainer');
+    const isTodo = todoContainer && todoContainer.style.display !== 'none';
+    const memoType = isTodo ? 'todo' : 'text';
 
-        if (!editingMemoId) {
-            editingMemoId = Date.now();
-            memos.push({
-                id: editingMemoId,
-                title: title,
-                content: content,
-                folder: folder,
-                createdAt: new Date().toLocaleString('ja-JP'),
-                updatedAt: new Date().toLocaleString('ja-JP'),
-                lastRead: new Date().toLocaleString('ja-JP')
-            });
-        } else {
-            const memo = memos.find(m => m.id === editingMemoId);
-            if (memo) {
-                memo.title = title;
-                memo.content = content;
-                memo.folder = folder;
-                memo.updatedAt = new Date().toLocaleString('ja-JP');
+    if (!editingMemoId) {
+        editingMemoId = Date.now();
+        memos.push({
+            id: editingMemoId,
+            title: title,
+            content: content,
+            folder: folder,
+            type: memoType,
+            items: (typeof todoItems !== 'undefined') ? [...todoItems] : [],
+            createdAt: new Date().toLocaleString('ja-JP'),
+            updatedAt: new Date().toLocaleString('ja-JP'),
+            lastRead: new Date().toLocaleString('ja-JP')
+        });
+    } else {
+        const memo = memos.find(m => m.id === editingMemoId);
+        if (memo) {
+            memo.title = title;
+            memo.content = content;
+            memo.folder = folder;
+            memo.type = memoType;
+            if (isTodo && typeof todoItems !== 'undefined') {
+                memo.items = [...todoItems];
             }
+            memo.updatedAt = new Date().toLocaleString('ja-JP');
         }
-
-        saveAllMemos();
-        isChanged = false;
-
-        const memoToSend = memos.find(m => m.id === editingMemoId);
-        if (navigator.onLine && memoToSend) {
-            fetch(GAS_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: 'save', memo: memoToSend })
-            }).catch(e => console.log("サーバー同期エラー"));
-        }
-
-        showToast("保存しました");
-        switchToPreviewMode();
     }
+
+    saveAllMemos();
+    isChanged = false;
+
+    showToast("保存しました");
+    switchToPreviewMode();
+}
 
     async function duplicateMemo() {
         if (!editingMemoId) return;
@@ -2136,6 +2151,63 @@ function removeCompletedTodos() {
     currentMemo.items = currentMemo.items.filter(item => !item.completed);
     isChanged = true;
     renderTodoItems();
+}
+// 1. ＋ボタンを押した時に選択メニューを開閉する関数
+function toggleFabMenu() {
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu.style.display === 'none' || fabMenu.style.display === '') {
+        fabMenu.style.display = 'flex';
+    } else {
+        fabMenu.style.display = 'none';
+    }
+}
+
+// 2. メニュー外をタップした時に選択メニューを閉じる処理
+document.addEventListener('click', function(e) {
+    const fabContainer = document.getElementById('fabContainer');
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabContainer && !fabContainer.contains(e.target) && fabMenu) {
+        fabMenu.style.display = 'none';
+    }
+});
+
+// 3. 選択されたタイプ（text / todo）に応じて新規編集画面を開く関数
+function createMemo(type) {
+    document.getElementById('fabMenu').style.display = 'none';
+    openEditorForNew(type);
+}
+
+// 4. 新規作成専用のオープン処理
+function openEditorForNew(type) {
+    editingMemoId = null;
+    
+    document.getElementById('editorTitle').value = '';
+    document.getElementById('editorBody').value = '';
+    document.getElementById('editorFolder').value = (currentFolder !== 'all') ? currentFolder : '';
+    
+    if (typeof todoItems !== 'undefined') {
+        todoItems = [];
+    }
+    
+    const editorBody = document.getElementById('editorBody');
+    const todoContainer = document.getElementById('todoEditContainer');
+
+    if (type === 'todo') {
+        if (editorBody) editorBody.style.display = 'none';
+        if (todoContainer) {
+            todoContainer.style.display = 'block';
+            renderTodoItems();
+        }
+    } else {
+        if (editorBody) editorBody.style.display = 'block';
+        if (todoContainer) todoContainer.style.display = 'none';
+    }
+
+    currentMemoType = type;
+    const modal = document.getElementById('editorModal');
+    modal.classList.add('open');
+    
+    switchToEditMode();
 }
 
 </script>
