@@ -647,7 +647,7 @@ function renderStructure() {
         const mhItem = document.createElement('div');
         mhItem.className = 'manage-list-item';
         // ★ 見出し側に「編集」ボタンを追加
-        mhItem.innerHTML = '<span>' + h + '</span><div class="btn-group"><button class="move-btn" onclick="moveHeader(' + hIdx + ', -1)">▲</button><button class="move-btn" onclick="moveHeader(' + hIdx + ', 1)">▼</button><button class="move-btn" onclick="editHeader(\'' + h + '\')">✏️ 編集</button><button class="del-btn" onclick="deleteHeader(\'' + h + '\')">削除</button></div>';
+        mhItem.innerHTML = '<span>' + h + '</span><div class="btn-group"><button class="move-btn" onclick="moveHeader(' + hIdx + ', -1)">▲</button><button class="move-btn" onclick="moveHeader(' + hIdx + ', 1)">▼</button><button class="move-btn" onclick="editHeader(\'' + h + '\')">編集</button><button class="del-btn" onclick="deleteHeader(\'' + h + '\')">削除</button></div>';
         manageHeaderList.appendChild(mhItem);
 
         const subFolders = folders.filter(f => f.header === h);
@@ -674,7 +674,7 @@ function renderStructure() {
             mfItem.className = 'manage-list-item';
             let hOptions = headers.map(head => '<option value="' + head + '" ' + (head===h?'selected':'') + '>' + head + '</option>').join('');
             // ★ フォルダ側に「編集」ボタンを追加
-            mfItem.innerHTML = '<div><strong>' + f.name + '</strong><select onchange="changeFolderHeader(\'' + f.name + '\', this.value)" style="font-size:12px; margin-left:10px;">' + hOptions + '</select></div><div class="btn-group"><button class="move-btn" onclick="moveFolder(' + realIdx + ', -1, \'' + h + '\')">▲</button><button class="move-btn" onclick="moveFolder(' + realIdx + ', 1, \'' + h + '\')">▼</button><button class="move-btn" onclick="editFolder(\'' + f.name + '\')">✏️ 編集</button><button class="del-btn" onclick="deleteFolder(\'' + f.name + '\')">削除</button></div>';
+            mfItem.innerHTML = '<div><strong>' + f.name + '</strong><select onchange="changeFolderHeader(\'' + f.name + '\', this.value)" style="font-size:12px; margin-left:10px;">' + hOptions + '</select></div><div class="btn-group"><button class="move-btn" onclick="moveFolder(' + realIdx + ', -1, \'' + h + '\')">▲</button><button class="move-btn" onclick="moveFolder(' + realIdx + ', 1, \'' + h + '\')">▼</button><button class="move-btn" onclick="editFolder(\'' + f.name + '\')">編集</button><button class="del-btn" onclick="deleteFolder(\'' + f.name + '\')">削除</button></div>';
             manageFolderList.appendChild(mfItem);
         });
     });
