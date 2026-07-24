@@ -1983,10 +1983,21 @@ function renderTodoItems() {
     todoList.innerHTML = '';
     completedList.innerHTML = '';
 
-    const currentMemo = memos.find(m => m.id === editingMemoId);
-    if (!currentMemo || !currentMemo.items) return;
+    // 対象のアイテム配列を取得（編集中の既存メモ、または新規作成時の作業用配列 todoItems）
+    let items = [];
+    if (editingMemoId) {
+        const currentMemo = memos.find(m => m.id === editingMemoId);
+        if (currentMemo) {
+            if (!currentMemo.items) currentMemo.items = [];
+            items = currentMemo.items;
+        }
+    } else {
+        if (typeof todoItems !== 'undefined' && Array.isArray(todoItems)) {
+            items = todoItems;
+        }
+    }
 
-    currentMemo.items.forEach((item, index) => {
+    items.forEach((item, index) => {
         const itemDiv = document.createElement('div');
         itemDiv.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0;';
 
@@ -2005,7 +2016,9 @@ function renderTodoItems() {
         const textSpan = document.createElement('span');
         textSpan.innerText = item.text;
         textSpan.style.cssText = 'flex: 1; cursor: pointer;';
-        textSpan.onclick = () => openTodoDetailModal(index);
+        if (typeof openTodoDetailModal === 'function') {
+            textSpan.onclick = () => openTodoDetailModal(index);
+        }
         if (item.completed) {
             textSpan.style.textDecoration = 'line-through';
             textSpan.style.color = '#999';
@@ -2017,11 +2030,15 @@ function renderTodoItems() {
         
         const upBtn = document.createElement('button');
         upBtn.innerText = '▲';
-        upBtn.onclick = () => moveTodoItem(index, -1);
+        if (typeof moveTodoItem === 'function') {
+            upBtn.onclick = () => moveTodoItem(index, -1);
+        }
         
         const downBtn = document.createElement('button');
         downBtn.innerText = '▼';
-        downBtn.onclick = () => moveTodoItem(index, 1);
+        if (typeof moveTodoItem === 'function') {
+            downBtn.onclick = () => moveTodoItem(index, 1);
+        }
 
         orderBtns.appendChild(upBtn);
         orderBtns.appendChild(downBtn);
@@ -2031,7 +2048,7 @@ function renderTodoItems() {
         deleteBtn.innerText = '✕';
         deleteBtn.style.cssText = 'border: none; background: transparent; color: #999; cursor: pointer; padding: 0 4px;';
         deleteBtn.onclick = () => {
-            currentMemo.items.splice(index, 1);
+            items.splice(index, 1);
             isChanged = true;
             renderTodoItems();
         };
