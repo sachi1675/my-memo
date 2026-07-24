@@ -377,12 +377,12 @@
             <input type="text" class="editor-title" id="editorTitle" placeholder="タイトルを入力..." oninput="onEditorInput()">
             <textarea class="editor-body" id="editorBody" placeholder="ここにメモを入力..." oninput="onEditorInput()"></textarea>
 
-            <!-- ▼ ここから追加 ▼ -->
+<!-- ▼ ここから追加 ▼ -->
             <div id="todoEditContainer" style="display: none; padding: 10px;">
               <!-- ① 新しい項目を追加する入力バー -->
               <div style="display: flex; gap: 8px; margin-bottom: 15px;">
                 <input type="text" id="newTodoInput" placeholder="+ 新しい項目を追加..." style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
-                <button id="addTodoBtn" style="padding: 10px 15px; border: none; background: #333; color: #fff; border-radius: 6px;">追加</button>
+                <button type="button" id="addTodoBtn" onclick="addTodoItem()" style="padding: 10px 15px; border: none; background: #333; color: #fff; border-radius: 6px;">追加</button>
               </div>
 
               <!-- ② 未完了のタスクリスト -->
@@ -891,93 +891,97 @@ function editHeader(oldName) {
         renderMemos();
     }
 
-    function renderMemos() {
-        const list = document.getElementById('memoList');
-        const searchQuery = document.getElementById('search').value.toLowerCase();
-        list.innerHTML = '';
-        let filtered = [...memos]; 
-        
-        if (currentFolder !== 'all') { 
-            filtered = filtered.filter(m => m.folder === currentFolder); 
-        }
-        
-        if (searchQuery) { 
-            filtered = filtered.filter(m => (m.title && m.title.toLowerCase().includes(searchQuery)) || (m.content && m.content.toLowerCase().includes(searchQuery))); 
-        }
-        
-        if (currentFolder !== 'all' && folderOrders[currentFolder]) {
-            const orderArray = folderOrders[currentFolder];
-            filtered.sort((a, b) => {
-                let indexA = orderArray.indexOf(a.id);
-                let indexB = orderArray.indexOf(b.id);
-                if (indexA === -1) indexA = 999999;
-                if (indexB === -1) indexB = 999999;
-                return indexA - indexB;
-            });
-        } else {
-            filtered.sort((a,b) => b.id - a.id);
-        }
+function renderMemos() {
+    const list = document.getElementById('memoList');
+    const searchQuery = document.getElementById('search').value.toLowerCase();
+    list.innerHTML = '';
+    let filtered = [...memos]; 
+    
+    if (currentFolder !== 'all') { 
+        filtered = filtered.filter(m => m.folder === currentFolder); 
+    }
+    
+    if (searchQuery) { 
+        filtered = filtered.filter(m => (m.title && m.title.toLowerCase().includes(searchQuery)) || (m.content && m.content.toLowerCase().includes(searchQuery))); 
+    }
+    
+    if (currentFolder !== 'all' && folderOrders[currentFolder]) {
+        const orderArray = folderOrders[currentFolder];
+        filtered.sort((a, b) => {
+            let indexA = orderArray.indexOf(a.id);
+            let indexB = orderArray.indexOf(b.id);
+            if (indexA === -1) indexA = 999999;
+            if (indexB === -1) indexB = 999999;
+            return indexA - indexB;
+        });
+    } else {
+        filtered.sort((a,b) => b.id - a.id);
+    }
 
-        updateBulkButtonsStatus();
-        if(filtered.length === 0) { list.innerHTML = '<div style="color:#777; text-align:center; margin-top:20px;">メモがありません</div>'; return; }
+    updateBulkButtonsStatus();
+    if(filtered.length === 0) { list.innerHTML = '<div style="color:#777; text-align:center; margin-top:20px;">メモがありません</div>'; return; }
+    
+    filtered.forEach((memo, idx) => {
+        const item = document.createElement('div');
+        item.className = 'memo-item';
+        item.onclick = (e) => { 
+            if(e.target.classList.contains('memo-checkbox') || e.target.closest('.memo-order-btns') || e.target.classList.contains('order-btn')) return; 
+            openEditor(memo.id); 
+        };
+        const highlight = (text) => {
+            if (!searchQuery) return text;
+            const regex = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+            return text.replace(regex, '<mark style="background: #fff200;">$1</mark>');
+        };
         
-        filtered.forEach((memo, idx) => {
-            const item = document.createElement('div');
-            item.className = 'memo-item';
-            item.onclick = (e) => { 
-                if(e.target.classList.contains('memo-checkbox') || e.target.closest('.memo-order-btns') || e.target.classList.contains('order-btn')) return; 
-                openEditor(memo.id); 
-            };
-            const highlight = (text) => {
-                if (!searchQuery) return text;
-                const regex = new RegExp('(' + searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-                return text.replace(regex, '<mark style="background: #fff200;">$1</mark>');
-            };
-            
-            const memoContent = memo.content || memo.body || '';
-            let displayTitle = memo.title && memo.title.trim() ? memo.title : (memoContent.split('\n')[0] || '無題のメモ');
-            if (!displayTitle || !displayTitle.trim()) { displayTitle = '無題のメモ'; }
-            
-            let displayDate = '日付不明';
-            if (memo.updatedAt && !memo.updatedAt.includes('{{$date}}')) {
-                if (memo.updatedAt.includes('T')) {
-                    const d = new Date(memo.updatedAt);
-                    if(!isNaN(d.getTime())) {
-                        displayDate = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-                    } else {
-                        displayDate = memo.updatedAt.split('T')[0].replace(/-/g, '/');
-                    }
+        const memoContent = memo.content || memo.body || '';
+        let rawTitle = memo.title && memo.title.trim() ? memo.title : (memoContent.split('\n')[0] || '無題のメモ');
+        if (!rawTitle || !rawTitle.trim()) { rawTitle = '無題のメモ'; }
+        
+        // ★ 追加：チェックリスト（type === 'todo'）の場合はタイトルの先頭に「✓ 」を付与
+        const isTodo = memo.type === 'todo';
+        let displayTitle = isTodo ? `✓ ${rawTitle}` : rawTitle;
+
+        let displayDate = '日付不明';
+        if (memo.updatedAt && !memo.updatedAt.includes('{{$date}}')) {
+            if (memo.updatedAt.includes('T')) {
+                const d = new Date(memo.updatedAt);
+                if(!isNaN(d.getTime())) {
+                    displayDate = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
                 } else {
-                    displayDate = memo.updatedAt.split(' ')[0];
+                    displayDate = memo.updatedAt.split('T')[0].replace(/-/g, '/');
                 }
             } else {
-                displayDate = new Date().toLocaleDateString('ja-JP');
+                displayDate = memo.updatedAt.split(' ')[0];
             }
+        } else {
+            displayDate = new Date().toLocaleDateString('ja-JP');
+        }
 
-            let orderBtnHtml = '';
-            if (currentFolder !== 'all' && !searchQuery) {
-                orderBtnHtml = `
-                    <div class="memo-order-btns" style="display: flex; flex-direction: column; gap: 4px; margin-left: 8px; flex-shrink: 0;">
-                        <button class="order-btn" onclick="moveMemoOrder(${idx}, -1)">▲</button>
-                        <button class="order-btn" onclick="moveMemoOrder(${idx}, 1)">▼</button>
-                    </div>
-                `;
-            }
-
-            /* 💡 強制左寄せ・右寄せ・2段配置を設定したHTML */
-            item.innerHTML = `
-                <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
-                <div class="memo-info">
-                    <div class="memo-title">${highlight(displayTitle)}</div>
-                    <div class="memo-meta">
-                        <span>${displayDate}</span>
-                        <span>${memo.folder || '未分類'}</span>
-                    </div>
+        let orderBtnHtml = '';
+        if (currentFolder !== 'all' && !searchQuery) {
+            orderBtnHtml = `
+                <div class="memo-order-btns" style="display: flex; flex-direction: column; gap: 4px; margin-left: 8px; flex-shrink: 0;">
+                    <button class="order-btn" onclick="moveMemoOrder(${idx}, -1)">▲</button>
+                    <button class="order-btn" onclick="moveMemoOrder(${idx}, 1)">▼</button>
                 </div>
-                ${orderBtnHtml}`;
-            list.appendChild(item);
-        });
-    }
+            `;
+        }
+
+        /* 💡 強制左寄せ・右寄せ・2段配置を設定したHTML */
+        item.innerHTML = `
+            <input type="checkbox" class="memo-checkbox" data-id="${memo.id}" onchange="updateBulkButtonsStatus()">
+            <div class="memo-info">
+                <div class="memo-title">${highlight(displayTitle)}</div>
+                <div class="memo-meta">
+                    <span>${displayDate}</span>
+                    <span>${memo.folder || '未分類'}</span>
+                </div>
+            </div>
+            ${orderBtnHtml}`;
+        list.appendChild(item);
+    });
+}
 
     function moveMemoOrder(index, direction) {
         let folderMemos = memos.filter(m => m.folder === currentFolder);
@@ -1288,8 +1292,21 @@ async function saveMemo() {
     const content = document.getElementById('editorBody').value;
     const folder = document.getElementById('editorFolder').value;
     
+    // チェックリストのコンテナを取得
     const todoContainer = document.getElementById('todoEditContainer');
-    const isTodo = todoContainer && todoContainer.style.display !== 'none';
+    
+    // style.display が 'none' 以外、または class や他の表示フラグも考慮して判定
+    let isTodo = false;
+    if (todoContainer) {
+        const displayStyle = window.getComputedStyle(todoContainer).display;
+        isTodo = displayStyle !== 'none';
+    }
+    
+    // グローバル変数などでモード管理している場合のバックアップ判定
+    if (!isTodo && typeof currentMemoType !== 'undefined' && currentMemoType === 'todo') {
+        isTodo = true;
+    }
+
     const memoType = isTodo ? 'todo' : 'text';
 
     if (!editingMemoId) {
@@ -1318,6 +1335,8 @@ async function saveMemo() {
             memo.updatedAt = new Date().toLocaleString('ja-JP');
         }
     }
+
+    // 保存後にローカルストレージ更新や画面再描画の処理が続いていればそのまま維持
 
     saveAllMemos();
     isChanged = false;
@@ -2278,7 +2297,7 @@ function openEditorForNew(type) {
     <!-- ヘッダー（タイトル入力と削除） -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
       <input type="text" id="modalTodoTitle" placeholder="タスク名..." style="font-size: 18px; font-weight: bold; border: none; border-bottom: 1px solid #ddd; width: 80%; padding: 4px 0; outline: none;">
-      <button id="modalDeleteBtn" style="border: none; background: transparent; font-size: 18px; cursor: pointer;">🗑️</button>
+      <button id="modalDeleteBtn" style="border: none; background: transparent; font-size: 18px; cursor: pointer;">削除</button>
     </div>
 
     <!-- メモ入力欄 -->
