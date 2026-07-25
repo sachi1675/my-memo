@@ -392,13 +392,7 @@ input[type="checkbox"] {
               <!-- ② 未完了のタスクリスト -->
               <div id="todoList" style="display: flex; flex-direction: column; gap: 8px;"></div>
 
-              <!-- ③ 完了済みのタスクリスト（折りたたみ） -->
-              <details style="margin-top: 20px;">
-                <summary style="color: #777; cursor: pointer; padding: 5px 0;">完了済み項目</summary>
-                <div id="completedTodoList" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;"></div>
-              </details>
-            </div>
-            <!-- ▲ ここまで追加 ▲ -->
+          <!-- ▲ ここまで追加 ▲ -->
 
         </div>
     </div>
@@ -1128,22 +1122,32 @@ function renderMemos() {
                 document.getElementById('editorBody').value = memo.content || memo.body || '';
                 document.getElementById('editorFolder').value = memo.folder || '';
                 
-                // ★ チェックリスト判定（type === 'todo' または items 配列を持っているか）
+                // UI要素の取得
+                const todoContainer = document.getElementById('todoEditContainer');
+                const bodyEl = document.getElementById('editorBody');
+
+                // ★ チェックリスト判定
                 const isTodo = memo.type === 'todo' || (Array.isArray(memo.items) && memo.items.length > 0);
-                
+
                 if (isTodo) {
                     memo.type = 'todo';
                     if (!memo.items) memo.items = [];
-                    
-                    // チェックリストを描画
+
+                    // チェックリスト欄を表示し、通常本文エリアを隠す
+                    if (todoContainer) todoContainer.style.display = 'block';
+                    if (bodyEl) bodyEl.style.display = 'none';
+
                     if (typeof renderTodoItems === 'function') {
                         renderTodoItems();
                     }
-                    
-                    // ★ チェックリストはプレビューを挟まず直接編集モードへ
                     switchToEditMode();
                 } else {
                     memo.type = 'text';
+
+                    // 通常メモの場合は、チェックリスト欄を隠して本文エリアを表示する！
+                    if (todoContainer) todoContainer.style.display = 'none';
+                    if (bodyEl) bodyEl.style.display = 'block';
+
                     switchToPreviewMode();
                 }
             } else {
@@ -1156,12 +1160,8 @@ function renderMemos() {
             document.getElementById('editorBody').value = '';
             document.getElementById('editorFolder').value = (currentFolder !== 'all') ? currentFolder : '';
             
-            // ★ 新規作成時も通常メモ('text')かチェックリスト('todo')かを判別できるようにしておく
-            // （もし新規メモオブジェクトを作るタイミングがあればそこでも memo.type = defaultType にします）
-            
             switchToEditMode();
         }
-    }
 
     function switchToPreviewMode() {
         document.getElementById('optionsMenu').style.display = 'none';
@@ -1750,7 +1750,17 @@ window.addEventListener('popstate', (e) => {
 
     // 4. 詳細・編集画面が開いている場合
     if (editorModal && editorModal.classList.contains('open')) {
-        // 現在「編集モード」の場合
+        // ★ チェックリストが開いているか判定
+        const todoContainer = document.getElementById('todoEditContainer');
+        const isTodo = todoContainer && window.getComputedStyle(todoContainer).display !== 'none';
+
+        // チェックリストの場合はプレビュー画面がないため、戻るキーで直接一覧（トップ）に戻る
+        if (isTodo) {
+            exitEditorVisuals();
+            return;
+        }
+
+        // 現在「編集モード」の場合（通常メモ）
         if (document.getElementById('editArea').style.display === 'flex') {
             
             if (editingMemoId === null) {
@@ -1767,32 +1777,32 @@ window.addEventListener('popstate', (e) => {
                     history.pushState({ type: 'edit_mode' }, null, '');
                     confirmOverlay.classList.add('open');
                 } else {
-     // 変更がなければ詳細画面（プレビュー）に戻す
-document.getElementById('editArea').style.display = 'none';
-document.getElementById('previewArea').style.display = 'block';
+                    // 変更がなければ詳細画面（プレビュー）に戻す
+                    document.getElementById('editArea').style.display = 'none';
+                    document.getElementById('previewArea').style.display = 'block';
 
-const dragHandle = document.getElementById('previewDragHandle');
-if (dragHandle) dragHandle.style.display = 'flex';
+                    const dragHandle = document.getElementById('previewDragHandle');
+                    if (dragHandle) dragHandle.style.display = 'flex';
 
-const saveBtn = document.getElementById('headerSaveBtn');
-if (saveBtn) saveBtn.style.display = 'none';
+                    const saveBtn = document.getElementById('headerSaveBtn');
+                    if (saveBtn) saveBtn.style.display = 'none';
 
-const viewHeader = document.getElementById('viewModeHeader');
-if (viewHeader) viewHeader.innerText = 'メモ詳細';
+                    const viewHeader = document.getElementById('viewModeHeader');
+                    if (viewHeader) viewHeader.innerText = 'メモ詳細';
 
-// ★置換エリア（検索・置換）を確実に非表示にする
-const replaceArea = document.getElementById('menuOptReplaceArea');
-if (replaceArea) replaceArea.style.display = 'none';
+                    // ★置換エリア（検索・置換）を確実に非表示にする
+                    const replaceArea = document.getElementById('menuOptReplaceArea');
+                    if (replaceArea) replaceArea.style.display = 'none';
 
-// メニュー項目（編集、複製、詳細情報、削除）をプレビュー用に復元して表示
-['menuOptEdit', 'menuOptDuplicate', 'menuOptInfo', 'menuOptDelete'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'block';
-});
+                    // メニュー項目（編集、複製、詳細情報、削除）をプレビュー用に復元して表示
+                    ['menuOptEdit', 'menuOptDuplicate', 'menuOptInfo', 'menuOptDelete'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.display = 'block';
+                    });
 
-if (typeof highlightPreviewText === 'function') {
-    highlightPreviewText();
-}
+                    if (typeof highlightPreviewText === 'function') {
+                        highlightPreviewText();
+                    }
                 }
             }
             return;
