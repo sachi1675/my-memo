@@ -544,15 +544,28 @@ let folders = savedFolders !== null ? JSON.parse(savedFolders) : [
     let currentMatchIndex = -1;
     let currentMatchSearchTerm = "";
 
-    // ローカル保存
-    function saveAllMemos() {
+   // ローカル＆サーバー同期保存
+    async function saveAllMemos() {
+        // 1. まずローカルストレージに即時保存
         localStorage.setItem('my_memos_v4', JSON.stringify(memos));
-    }
 
-    function saveFolderOrders() {
-        localStorage.setItem('my_folder_orders_v4', JSON.stringify(folderOrders));
+        // 2. ネットワークが繋がっていればGAS（サーバー）にも送信
+        if (navigator.onLine && typeof GAS_URL !== 'undefined') {
+            try {
+                await fetch(GAS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        action: 'save',
+                        memos: JSON.stringify(memos) // itemsやfolderなども含まれた全体の配列
+                    })
+                });
+            } catch (e) {
+                console.error("サーバー保存エラー:", e);
+            }
+        }
     }
-
+    
     // ① 起動時の自動 pushState は Opera で無視されるため廃止
     function initHistoryState() {
         window.history.replaceState({ type: 'home_active' }, null, '');
