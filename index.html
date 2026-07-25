@@ -382,12 +382,10 @@ input[type="checkbox"] {
             <textarea class="editor-body" id="editorBody" placeholder="ここにメモを入力..." oninput="onEditorInput()"></textarea>
 
 <!-- ▼ ここから追加 ▼ -->
-            <div id="todoEditContainer" style="display: none; padding: 10px;">
-              <!-- ① 新しい項目を追加する入力バー -->
-              <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-                <input type="text" id="newTodoInput" placeholder="+ 新しい項目を追加..." style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
-                <button type="button" id="addTodoBtn" onclick="addTodoItem()" style="padding: 10px 15px; border: none; background: #333; color: #fff; border-radius: 6px;">追加</button>
-              </div>
+<div style="display: flex; gap: 8px; margin-bottom: 15px;">
+  <input type="text" id="newTodoInput" placeholder="+ 新しい項目を追加..." onkeydown="handleTodoInputKeyDown(event)" style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+  <button type="button" id="addTodoBtn" onclick="addTodoItem()" style="padding: 10px 15px; border: none; background: #3a4d5c; color: #fff; border-radius: 6px;">追加</button>
+</div>
 
               <!-- ② 未完了のタスクリスト -->
               <div id="todoList" style="display: flex; flex-direction: column; gap: 8px;"></div>
@@ -2059,24 +2057,22 @@ function addTodoItem() {
 
     input.value = '';
     isChanged = true;
-    renderTodoItems();
+    
+    if (typeof renderTodoItems === 'function') {
+        renderTodoItems();
+    }
+
+    // 入力欄にフォーカスを戻す
+    input.focus();
 }
 
-// 2. 追加ボタンやEnterキーのイベント設定
-document.addEventListener('DOMContentLoaded', () => {
-    const addBtn = document.getElementById('addTodoBtn');
-    const input = document.getElementById('newTodoInput');
-
-    if (addBtn) addBtn.onclick = addTodoItem;
-    if (input) {
-        input.onkeypress = (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addTodoItem();
-            }
-        };
+// Enterキーで追加するための関数（HTMLから直接呼ぶ用）
+function handleTodoInputKeyDown(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault(); // 改行を防ぐ
+        addTodoItem();
     }
-});
+}
 
 // 3. チェックリスト画面の描画処理
 function renderTodoItems() {
