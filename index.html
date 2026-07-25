@@ -1092,8 +1092,16 @@ function renderMemos() {
                 document.getElementById('editorTitle').value = memo.title || '';
                 document.getElementById('editorBody').value = memo.content || memo.body || '';
                 document.getElementById('editorFolder').value = memo.folder || '';
+                
+                // ★ チェックリスト（type === 'todo'）の場合はプレビューを挟まず直接編集モードへ
+                if (memo.type === 'todo') {
+                    switchToEditMode();
+                } else {
+                    switchToPreviewMode();
+                }
+            } else {
+                switchToPreviewMode();
             }
-            switchToPreviewMode();
         } else {
             editingMemoId = null;
             document.getElementById('editorTitle').value = '';
@@ -2006,9 +2014,21 @@ function renderTodoItems() {
         checkbox.type = 'checkbox';
         checkbox.checked = item.completed;
         checkbox.style.cursor = 'pointer';
+        checkbox.style.accentColor = '#333';
         checkbox.onchange = () => {
             item.completed = checkbox.checked;
             isChanged = true;
+            
+            // ★ 追加：チェック状態に応じて文字の装飾（取り消し線と色）を即座に切り替える
+            if (item.completed) {
+                textSpan.style.textDecoration = 'line-through';
+                textSpan.style.color = '#999';
+            } else {
+                textSpan.style.textDecoration = 'none';
+                textSpan.style.color = 'inherit';
+            }
+
+            // 完了 / 未完了リスト間での再配置（リストの再描画）
             renderTodoItems();
         };
 
