@@ -1102,7 +1102,7 @@ function renderMemos() {
     }
 
     // ① ユーザーがタップしてエディタ（またはプレビュー）を開く瞬間に初めて pushState を実行
-    function openEditor(id = null) {
+    function openEditor(id = null, defaultType = 'text') {
         document.getElementById('optionsMenu').style.display = 'none';
         const modal = document.getElementById('editorModal');
         modal.classList.add('open');
@@ -1111,10 +1111,14 @@ function renderMemos() {
         currentMatchIndex = -1;
         currentMatchSearchTerm = "";
 
+        // ★【データ混同防止】作業用データやDOMをリセット
+        currentEditingTodoIndex = null;
+
         // Opera対策: ユーザー操作に直結するここで、初めて「詳細画面が開いた」履歴を安全に積む
         history.pushState({ type: 'preview_mode_active' }, null, '');
 
         if (id) {
+            // --- 既存メモを開く場合 ---
             editingMemoId = id;
             const memo = memos.find(m => m.id === id);
             if (memo) {
@@ -1124,20 +1128,37 @@ function renderMemos() {
                 document.getElementById('editorBody').value = memo.content || memo.body || '';
                 document.getElementById('editorFolder').value = memo.folder || '';
                 
-                // ★ チェックリスト（type === 'todo'）の場合はプレビューを挟まず直接編集モードへ
-                if (memo.type === 'todo') {
+                // ★ チェックリスト判定（type === 'todo' または items 配列を持っているか）
+                const isTodo = memo.type === 'todo' || (Array.isArray(memo.items) && memo.items.length > 0);
+                
+                if (isTodo) {
+                    memo.type = 'todo';
+                    if (!memo.items) memo.items = [];
+                    
+                    // チェックリストを描画
+                    if (typeof renderTodoItems === 'function') {
+                        renderTodoItems();
+                    }
+                    
+                    // ★ チェックリストはプレビューを挟まず直接編集モードへ
                     switchToEditMode();
                 } else {
+                    memo.type = 'text';
                     switchToPreviewMode();
                 }
             } else {
                 switchToPreviewMode();
             }
         } else {
+            // --- 新規作成の場合 ---
             editingMemoId = null;
             document.getElementById('editorTitle').value = '';
             document.getElementById('editorBody').value = '';
             document.getElementById('editorFolder').value = (currentFolder !== 'all') ? currentFolder : '';
+            
+            // ★ 新規作成時も通常メモ('text')かチェックリスト('todo')かを判別できるようにしておく
+            // （もし新規メモオブジェクトを作るタイミングがあればそこでも memo.type = defaultType にします）
+            
             switchToEditMode();
         }
     }
@@ -1334,19 +1355,31 @@ async function saveMemo() {
     // チェックリストのコンテナを取得
     const todoContainer = document.getElementById('todoEditContainer');
     
-    // style.display が 'none' 以外、または class や他の表示フラグも考慮して判定
+    // style.display が 'none' 以外かどうかに加えて、memoType の判定を強化
     let isTodo = false;
     if (todoContainer) {
         const displayStyle = window.getComputedStyle(todoContainer).display;
         isTodo = displayStyle !== 'none';
     }
     
-    // グローバル変数などでモード管理している場合のバックアップ判定
     if (!isTodo && typeof currentMemoType !== 'undefined' && currentMemoType === 'todo') {
         isTodo = true;
     }
 
     const memoType = isTodo ? 'todo' : 'text';
+
+    // 保存対象の items 配列を取得（todoItems があればそれを、なければ作業中の memo.items を使用）
+    let currentItems = [];
+    if (isTodo) {
+        if (typeof todoItems !== 'undefined' && Array.isArray(todoItems)) {
+            currentItems = [...todoItems];
+        } else if (editingMemoId) {
+            const existingMemo = memos.find(m => m.id === editingMemoId);
+            if (existingMemo && existingMemo.items) {
+                currentItems = [...existingMemo.items];
+            }
+        }
+    }
 
     if (!editingMemoId) {
         editingMemoId = Date.now();
@@ -1356,7 +1389,7 @@ async function saveMemo() {
             content: content,
             folder: folder,
             type: memoType,
-            items: (typeof todoItems !== 'undefined') ? [...todoItems] : [],
+            items: currentItems,
             createdAt: new Date().toLocaleString('ja-JP'),
             updatedAt: new Date().toLocaleString('ja-JP'),
             lastRead: new Date().toLocaleString('ja-JP')
@@ -1368,20 +1401,30 @@ async function saveMemo() {
             memo.content = content;
             memo.folder = folder;
             memo.type = memoType;
-            if (isTodo && typeof todoItems !== 'undefined') {
-                memo.items = [...todoItems];
+            if (isTodo) {
+                memo.items = currentItems;
             }
             memo.updatedAt = new Date().toLocaleString('ja-JP');
         }
     }
 
-    // 保存後にローカルストレージ更新や画面再描画の処理が続いていればそのまま維持
-
     saveAllMemos();
     isChanged = false;
 
     showToast("保存しました");
-    switchToPreviewMode();
+
+    // ★ チェックリストの場合はプレビューに飛ぶ必要がないため、モーダルを閉じる（一覧に戻る）
+    if (memoType === 'todo') {
+        if (typeof exitEditorVisuals === 'function') {
+            exitEditorVisuals(); // エディタ画面を閉じる
+        } else {
+            const modal = document.getElementById('editorModal');
+            if (modal) modal.classList.remove('open');
+        }
+    } else {
+        // 通常メモの場合はこれまで通りプレビューモードへ移行
+        switchToPreviewMode();
+    }
 }
 
     async function duplicateMemo() {
@@ -2338,6 +2381,12 @@ function createMemo(type) {
 
 // 4. 新規作成専用のオープン処理
 function openEditorForNew(type) {
+    // ★この4行を追加
+if (typeof todoItems !== 'undefined') {
+    todoItems = [];
+}
+currentEditingTodoIndex = null;
+
     editingMemoId = null;
     
     document.getElementById('editorTitle').value = '';
