@@ -1125,6 +1125,7 @@ function renderMemos() {
                 const bodyEl = document.getElementById('editorBody');
 
                 // ★ チェックリスト判定
+                // ★ チェックリスト判定（typeがtodoか、またはitemsが存在して1件以上あるか）
                 const isTodo = memo.type === 'todo' || (Array.isArray(memo.items) && memo.items.length > 0);
 
                 if (isTodo) {
@@ -1268,6 +1269,10 @@ function toggleOptionsMenu(e) {
     if (e && e.stopPropagation) e.stopPropagation();
     const menu = document.getElementById('optionsMenu');
     if (!menu) return;
+
+    // ★ 追加：メニュー開閉時に置換エリア（検索・置換）を確実に隠す
+    const replaceArea = document.getElementById('menuOptReplaceArea');
+    if (replaceArea) replaceArea.style.display = 'none';
 
     // 現在閉じていて、これから開く場合
     if (menu.style.display !== 'block') {
@@ -2016,7 +2021,6 @@ function createMemoFromClipboard() {
 }
 
     // --- チェックリスト機能の処理 ---
-
 // 1. 新しい項目を追加する処理
 function addTodoItem() {
     const input = document.getElementById('newTodoInput');
@@ -2030,29 +2034,29 @@ function addTodoItem() {
         window.todoItems = [];
     }
 
-    // メモ編集中（editingMemoIdが存在する）場合と、新規作成時の両方に対応
+    // 作成するアイテムオブジェクト（元々の構造をそのまま維持）
+    const newItem = {
+        id: Date.now(),
+        text: text,
+        completed: false,
+        note: '',
+        subtasks: []
+    };
+
+    // 編集中のメモが存在する場合
     if (editingMemoId) {
         const currentMemo = memos.find(m => m.id === editingMemoId);
         if (currentMemo) {
-            if (!currentMemo.items) currentMemo.items = [];
-            currentMemo.items.push({
-                id: Date.now(),
-                text: text,
-                completed: false,
-                note: '',
-                subtasks: []
-            });
-            todoItems = currentMemo.items;
+            if (!Array.isArray(currentMemo.items)) {
+                currentMemo.items = [];
+            }
+            currentMemo.items.push(newItem);
+            // 参照を同期
+            window.todoItems = currentMemo.items;
         }
     } else {
-        // 新規作成時は一時配列 todoItems に追加
-        todoItems.push({
-            id: Date.now(),
-            text: text,
-            completed: false,
-            note: '',
-            subtasks: []
-        });
+        // 新規作成時
+        window.todoItems.push(newItem);
     }
 
     input.value = '';
