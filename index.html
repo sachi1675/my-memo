@@ -16,7 +16,11 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; background: var(--bg-color); color: var(--text-color); height: 100vh; overflow: hidden; width: 100vw; max-width: 100%; position: relative; }
-        
+        /* アプリ内の全チェックボックスの色をネイビーに統一 */
+input[type="checkbox"] {
+    accent-color: #3a4d5c;
+}
+
         /* サイドバー */
         .sidebar { position: fixed; top: 0; left: -260px; width: 260px; height: 100%; background: var(--sidebar-bg); color: var(--sidebar-text); transition: 0.3s; z-index: 1000; padding: 20px; overflow-y: auto; touch-action: pan-y; }
         .sidebar.open { left: 0; }
@@ -1012,8 +1016,22 @@ function renderMemos() {
         const hasChecked = checkboxes.length > 0;
         const delBtn = document.getElementById('bulkDeleteBtn');
         const moveBtn = document.getElementById('bulkMoveBtn');
-        if (hasChecked) { delBtn.classList.add('active'); moveBtn.classList.add('active'); }
-        else { delBtn.classList.remove('active'); moveBtn.classList.remove('active'); }
+        
+        if (hasChecked) { 
+            delBtn.classList.add('active'); 
+            moveBtn.classList.add('active'); 
+        } else { 
+            delBtn.classList.remove('active'); 
+            moveBtn.classList.remove('active'); 
+        }
+
+        // ★ チェックが入った瞬間に「戻るキーでチェック解除」用の履歴を積む処理を追加
+        if (hasChecked && !window.isBulkSelectModeActive) {
+            window.isBulkSelectModeActive = true;
+            history.pushState({ type: 'bulk_select_active' }, null, '');
+        } else if (!hasChecked && window.isBulkSelectModeActive) {
+            window.isBulkSelectModeActive = false;
+        }
     }
 
     function clearBulkSelection() {
@@ -1622,6 +1640,17 @@ window.addEventListener('popstate', (e) => {
     const bulkMoveModal = document.getElementById('folderSelectModalOverlay');
     const editorModal = document.getElementById('editorModal');
 
+    // ★ 0. 一括選択モード中なら、最優先でチェックをすべて外して一括選択を解除する
+    const checkedBoxes = document.querySelectorAll('.memo-checkbox:checked');
+    if (checkedBoxes.length > 0) {
+        checkedBoxes.forEach(cb => cb.checked = false);
+        window.isBulkSelectModeActive = false;
+        if (typeof updateBulkButtonsStatus === 'function') {
+            updateBulkButtonsStatus();
+        }
+        return; // アプリ終了や画面遷移を阻止！
+    }
+    
     // 1. 確認ダイアログが開いている場合は、最優先でダイアログを閉じる
     if (confirmOverlay && confirmOverlay.classList.contains('open')) {
         confirmOverlay.classList.remove('open');
@@ -2078,12 +2107,13 @@ function renderTodoItems() {
         itemDiv.appendChild(orderBtns);
         itemDiv.appendChild(deleteBtn);
 
-        if (item.completed) {
-            completedList.appendChild(itemDiv);
-        } else {
-            todoList.appendChild(itemDiv);
-        }
+        // 完了・未完了で分けず、すべて todoList に追加する
+        todoList.appendChild(itemDiv);
     });
+
+    // 完了済みコンテナ（completedList）は空にして非表示にする（またはHTMLから削除）
+    completedList.innerHTML = '';
+    completedList.style.display = 'none';
 }
 
 // 4. 項目の並び替え処理
