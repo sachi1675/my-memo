@@ -1902,6 +1902,7 @@ function initDragHandleEvents() {
                 title: sharedData.title || '',
                 content: sharedData.content || '',
                 folder: targetFolder,
+                type: 'text',
                 createdAt: nowStr,
                 updatedAt: nowStr,
                 lastRead: nowStr
@@ -1910,8 +1911,8 @@ function initDragHandleEvents() {
             // 重複登録を防ぐため、すでに同じIDや内容のメモがmemosにないか念のためチェック
             const isAlreadyExists = memos.some(m => m.title === newSharedMemo.title && m.content === newSharedMemo.content);
             if (!isAlreadyExists) {
-                memos.push(newSharedMemo);
-                saveAllMemos();
+                memos.unshift(newSharedMemo); // 先頭に追加
+                await saveAllMemos();
             }
             
             // 画面をしっかり再描画
@@ -2197,45 +2198,61 @@ function moveTodoItem(index, direction) {
     renderTodoItems();
 }
 // --- 詳細モーダルの操作 & 一括操作メニュー処理 ---
-
 let currentEditingTodoIndex = null; // 現在編集中のタスク番号
 
 // 1. タスク名をタップした時に詳細モーダルを開く
 function openTodoDetailModal(index) {
-    const currentMemo = memos.find(m => m.id === editingMemoId);
-    if (!currentMemo || !currentMemo.items || !currentMemo.items[index]) return;
+    // グローバル変数 todoItems があれば優先、なければメモ本体の items から取得
+    let targetItem = (todoItems && todoItems[index]) ? todoItems[index] : null;
+    if (!targetItem) {
+        const currentMemo = memos.find(m => m.id === editingMemoId);
+        if (currentMemo && currentMemo.items) {
+            targetItem = currentMemo.items[index];
+        }
+    }
+    if (!targetItem) return;
 
     currentEditingTodoIndex = index;
-    const item = currentMemo.items[index];
 
     // モーダルの各入力欄に既存データをセット
-    document.getElementById('modalTodoTitle').value = item.text || '';
-    document.getElementById('modalTodoNote').value = item.note || '';
+    const modalTitle = document.getElementById('modalTodoTitle');
+    const modalNote = document.getElementById('modalTodoNote');
+    if (modalTitle) modalTitle.value = targetItem.text || '';
+    if (modalNote) modalNote.value = targetItem.note || '';
     
     renderSubtasks();
 
     const modal = document.getElementById('todoDetailModal');
-    modal.style.display = 'flex';
+    if (modal) modal.style.display = 'flex';
 }
 
 // 2. モーダル内のサブタスクを描画する
 function renderSubtasks() {
-    const currentMemo = memos.find(m => m.id === editingMemoId);
-    if (currentEditingTodoIndex === null || !currentMemo) return;
-    
-    const item = currentMemo.items[currentEditingTodoIndex];
-    if (!item.subtasks) item.subtasks = [];
+    if (currentEditingTodoIndex === null) return;
+
+    // 対象のタスク要素を取得
+    let targetItem = (todoItems && todoItems[currentEditingTodoIndex]) ? todoItems[currentEditingTodoIndex] : null;
+    if (!targetItem) {
+        const currentMemo = memos.find(m => m.id === editingMemoId);
+        if (currentMemo && currentMemo.items) {
+            targetItem = currentMemo.items[currentEditingTodoIndex];
+        }
+    }
+    if (!targetItem) return;
+    if (!targetItem.subtasks) targetItem.subtasks = [];
 
     const subtaskList = document.getElementById('modalSubtaskList');
+    if (!subtaskList) return;
     subtaskList.innerHTML = '';
 
-    item.subtasks.forEach((sub, subIdx) => {
+    targetItem.subtasks.forEach((sub, subIdx) => {
         const subDiv = document.createElement('div');
-        subDiv.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        subDiv.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 6px;';
 
-        const subCheckbox = document.input = document.createElement('input');
+        // ⭕ 文法エラーを修正（document.input = を除去）
+        const subCheckbox = document.createElement('input');
         subCheckbox.type = 'checkbox';
-        subCheckbox.checked = sub.completed;
+        subCheckbox.checked = !!sub.completed;
         subCheckbox.onchange = () => {
             sub.completed = subCheckbox.checked;
             isChanged = true;
@@ -2243,7 +2260,7 @@ function renderSubtasks() {
 
         const subInput = document.createElement('input');
         subInput.type = 'text';
-        subInput.value = sub.text;
+        subInput.value = sub.text || '';
         subInput.style.cssText = 'flex: 1; border: none; border-bottom: 1px dashed #ccc; outline: none; font-size: 14px;';
         subInput.oninput = () => {
             sub.text = subInput.value;
@@ -2254,7 +2271,7 @@ function renderSubtasks() {
         subDeleteBtn.innerText = '✕';
         subDeleteBtn.style.cssText = 'border: none; background: transparent; color: #999; cursor: pointer;';
         subDeleteBtn.onclick = () => {
-            item.subtasks.splice(subIdx, 1);
+            targetItem.subtasks.splice(subIdx, 1);
             isChanged = true;
             renderSubtasks();
         };
@@ -2385,10 +2402,32 @@ document.addEventListener('click', function(e) {
 });
 
 // 3. 選択されたタイプ（text / todo）に応じて新規編集画面を開く関数
-function createMemo(type) {
-    document.getElementById('fabMenu').style.display = 'none';
-    openEditorForNew(type);
-}
+    function createMemo(type = 'text') {
+        const fabMenu = document.getElementById('fabMenu');
+        if (fabMenu) fabMenu.style.display = 'none';
+        
+        const todoContainer = document.getElementById('todoEditContainer');
+        const bodyEl = document.getElementById('editorBody');
+
+        editingMemoId = null;
+        todoItems = [];
+
+        document.getElementById('editorTitle').value = '';
+        document.getElementById('editorBody').value = '';
+        document.getElementById('editorFolder').value = (currentFolder !== 'all') ? currentFolder : '';
+
+        // 種別に応じた表示切り替え処理
+        if (type === 'todo') {
+            if (todoContainer) todoContainer.style.display = 'block';
+            if (bodyEl) bodyEl.style.display = 'none';
+            renderTodoItems();
+        } else {
+            if (todoContainer) todoContainer.style.display = 'none';
+            if (bodyEl) bodyEl.style.display = 'block';
+        }
+
+        openEditor(null, type);
+    }
 
 // 4. 新規作成専用のオープン処理
 function openEditorForNew(type) {
