@@ -4192,12 +4192,17 @@ function openPasteRestore(){
    閉じたときは入力中のタイトルと本文を保持し、次に開いたときに復元
    する。「キャンセル」だけが明示的な破棄で、保存・「編集画面で開く」
    へ進んだときも保持は消える。分け方の選択は従来どおり開くたびに
-   「分ける」に戻す（保持の対象はタイトルと本文だけ）。 */
+   「分ける」に戻す（保持の対象はタイトルと本文だけ）。
+   キャンセルで入力を破棄したときは、次に開いたときのクリップボード
+   自動読み取りを1回だけ止める。止めないと、破棄した文章がクリップ
+   ボードに残っている間、開き直すたびに自動で戻ってきてしまい、
+   「キャンセルしても消えない」状態になるため。 */
 var shareImportKept = null;         /* 保持中の入力 {title, body}。空なら null */
 var shareImportEntryPushed = false; /* シート用に履歴を1件積んでいるか */
 var shareImportAfterConsume = null; /* シート用履歴の消費後に実行する遷移 */
 var shareImportCloseSeq = 0;        /* 閉じる処理の世代（フォールバック判定用） */
 var shareImportClosing = false;     /* 履歴消費による閉じ処理が進行中か */
+var shareImportSkipAutoPaste = false; /* キャンセル直後の1回だけ自動読み取りを止める */
 function isShareImportOpen(){ var o = byId("shareImportOverlay"); return !!(o && !o.hidden); }
 function hideShareImport(){ var o = byId("shareImportOverlay"); if (o) o.hidden = true; }
 function keepShareImportInput(){
@@ -4233,12 +4238,19 @@ function requestCloseShareImport(){
     hideShareImport();
   }, 450);
 }
-/* 「キャンセル」：入力を破棄して閉じる（保持しない） */
+/* 「キャンセル」：入力を破棄して閉じる（保持しない）。
+   入力があった状態で破棄したときは、次に開いたときのクリップボード
+   自動読み取りを1回だけ止め、破棄した文章が開き直した途端に自動で
+   戻ってこないようにする（「クリップボードから貼り付け」ボタンを
+   押せば、従来どおりその場で入れ直せる） */
 function cancelShareImport(){
+  var t = byId("shareImportTitleInput"), b = byId("shareImportText");
+  if ((t && t.value) || (b && b.value)) shareImportSkipAutoPaste = true;
   shareImportKept = null;
-  var t = byId("shareImportTitleInput"); if (t) t.value = "";
-  var b = byId("shareImportText"); if (b) b.value = "";
+  if (t) t.value = "";
+  if (b) b.value = "";
   var s = byId("shareImportStatus"); if (s) s.textContent = "";
+  updateShareImportSplitPreview();
   requestCloseShareImport();
 }
 /* 保存・編集へ進むとき：保持を破棄し、シート用の履歴を消費してから遷移する */
@@ -4281,12 +4293,19 @@ function openShareImport(){
 function tryPasteFromClipboard(silent){
   var status = byId("shareImportStatus");
   var area = byId("shareImportText");
+  /* キャンセルで破棄した直後の自動読み取りは1回だけ止める
+     （明示的なボタンからの貼り付けは止めない） */
+  if (silent && shareImportSkipAutoPaste){ shareImportSkipAutoPaste = false; return; }
   if (!navigator.clipboard || !navigator.clipboard.readText){
     if (!silent && status) status.textContent = "この環境では自動で読み取れませんでした。本文の欄を長押しして「貼り付け」を選んでください。";
     if (area) { try { area.focus(); } catch(e){} }
     return;
   }
   navigator.clipboard.readText().then(function(text){
+    /* 読み取り結果が届く前にシートが閉じられた（キャンセル含む）ときは、
+       隠れている欄を書き換えない。書き換えると、閉じる処理側の保持に
+       拾われて、次に開いたときに破棄したはずの文章が復活してしまう */
+    if (!isShareImportOpen() || shareImportClosing) return;
     if (text && text.trim()){
       /* 自動読み取り（silent）では、復元した入力が残っている欄を上書きしない。
          ボタンからの明示的な貼り付けでは従来どおり上書きする */
