@@ -1061,16 +1061,7 @@
   } catch (e) {
     return false;
   }
-})();</script><meta name="theme-color" id="standaloneThemeColor" content="#3a4d5c">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="マイメモ">
-<link rel="manifest" id="standaloneManifestLink" href="manifest.webmanifest">
-<link rel="apple-touch-icon" id="standaloneAppleIcon" href="">
-<link rel="icon" id="standaloneFavicon" type="image/png" href="">
-<script id="standaloneMarker">window.__MYMEMO_STANDALONE__=true;</script>
-</head>
+})();</script><meta name="theme-color" content="#3a4d5c" id="standaloneThemeColor"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="マイメモ"><link rel="manifest" id="standaloneManifestLink" href="manifest.webmanifest"><link rel="apple-touch-icon" id="standaloneAppleIcon" href=""><link rel="icon" id="standaloneFavicon" type="image/png" href=""><script id="standaloneMarker">window.__MYMEMO_STANDALONE__=true;</script></head>
 <body data-screen="list">
 <div id="drawerOverlay" class="sidebar-overlay" hidden=""></div>
 <aside id="drawer" class="sidebar" aria-label="フォルダとデータ">
@@ -3950,221 +3941,49 @@ function buildStandaloneHTML(){
   }
   var splitRadio = root.querySelector("#shareImportSplitSplit"); if (splitRadio) splitRadio.setAttribute("checked", "");
   var keepRadio = root.querySelector("#shareImportSplitKeep"); if (keepRadio) keepRadio.removeAttribute("checked");
+  /* 差し込みは文字列置換（replace）ではなく、複製した文書へ要素として
+     追加してから outerHTML で取り出す。以前は replace("</body>", …) で
+     差し込んでいたが、生成後の文書文字列では、この関数自身のソースに
+     含まれる "</body>" という文字列の方が本物の閉じタグより先に現れる
+     ため、そちらに差し込まれて単独版のスクリプトが途中で切れ、画面に
+     引用符などの残りが表示されボタンが動かなくなった。要素として
+     追加すれば、出現位置や置換パターンの影響を受けず壊れない */
   var src = byId("standaloneRuntimeSource");
   var runtime = src ? src.textContent : "";
-  var headInject = [
-    '<meta name="theme-color" id="standaloneThemeColor" content="#3a4d5c">',
-    '<meta name="mobile-web-app-capable" content="yes">',
-    '<meta name="apple-mobile-web-app-capable" content="yes">',
-    '<meta name="apple-mobile-web-app-status-bar-style" content="default">',
-    '<meta name="apple-mobile-web-app-title" content="マイメモ">',
-    '<link rel="manifest" id="standaloneManifestLink" href="manifest.webmanifest">',
-    '<link rel="apple-touch-icon" id="standaloneAppleIcon" href="">',
-    '<link rel="icon" id="standaloneFavicon" type="image/png" href="">',
-    '<script id="standaloneMarker">window.__MYMEMO_STANDALONE__=true;<\/script>'
-  ].join("\n");
-  var html = "<!doctype html>\n" + root.outerHTML;
-  html = html.replace("</head>", headInject + "\n</head>");
-  if (runtime) html = html.replace("<script id="standaloneRuntimeScript">
-
-(function(){
-  if (window.__MYMEMO_STANDALONE__ !== true) return;
-  var shared = null;
-  try {
-    var params = new URLSearchParams(location.search);
-    var st = params.get("title") || "", sx = params.get("text") || "", su = params.get("url") || "";
-    if (st || sx || su){
-      shared = { title: st, text: sx, url: su };
-      try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
-    }
-  } catch(e){}
-  function makeIcon(size){
-    try {
-      var c = document.createElement("canvas"); c.width = size; c.height = size;
-      var g = c.getContext("2d"); if (!g) return null;
-      g.fillStyle = "#3a4d5c"; g.fillRect(0, 0, size, size);
-      var m = size * 0.16, w = size - 2 * m, h = size - 2 * m, r = size * 0.06;
-      g.fillStyle = "#ffffff";
-      g.beginPath();
-      g.moveTo(m + r, m);
-      g.lineTo(m + w - r, m); g.quadraticCurveTo(m + w, m, m + w, m + r);
-      g.lineTo(m + w, m + h - r); g.quadraticCurveTo(m + w, m + h, m + w - r, m + h);
-      g.lineTo(m + r, m + h); g.quadraticCurveTo(m, m + h, m, m + h - r);
-      g.lineTo(m, m + r); g.quadraticCurveTo(m, m, m + r, m);
-      g.fill();
-      g.strokeStyle = "#4a90e2"; g.lineWidth = Math.max(2, size * 0.035); g.lineCap = "round";
-      var lx = m + w * 0.16, rx = m + w * 0.84, ys = [0.32, 0.5, 0.68];
-      for (var i = 0; i < ys.length; i++){
-        var y = m + h * ys[i];
-        g.beginPath(); g.moveTo(lx, y); g.lineTo(rx - (i === 2 ? w * 0.22 : 0), y); g.stroke();
-      }
-      return c.toDataURL("image/png");
-    } catch(e){ return null; }
-  }
-  function setupPWA(){
-    var icon192 = makeIcon(192), icon512 = makeIcon(512);
-    var svgFallback = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#3a4d5c"/><rect x="18" y="14" width="64" height="72" rx="6" fill="#ffffff"/><path d="M28 36h44M28 52h44M28 68h30" stroke="#4a90e2" stroke-width="5" stroke-linecap="round"/></svg>');
-    var i192 = icon192 || svgFallback, i512 = icon512 || svgFallback;
-    var t192 = icon192 ? "image/png" : "image/svg+xml", t512 = icon512 ? "image/png" : "image/svg+xml";
-    var base = location.protocol + "//" + location.host + location.pathname;
-    var scope = base.replace(/[^\/]*$/, "");
-    var manifest = {
-      name: "マイメモ", short_name: "マイメモ", description: "シンプルなメモアプリ",
-      start_url: base, scope: scope, display: "standalone", orientation: "portrait",
-      theme_color: "#3a4d5c", background_color: "#f5f5f5",
-      icons: [
-        { src: i192, sizes: "192x192", type: t192, purpose: "any" },
-        { src: i512, sizes: "512x512", type: t512, purpose: "any" },
-        { src: i512, sizes: "512x512", type: t512, purpose: "maskable" }
-      ],
-      share_target: { action: base, method: "GET", enctype: "application/x-www-form-urlencoded",
-        params: { title: "title", text: "text", url: "url" } }
+  var head = root.querySelector("head");
+  if (head){
+    var addMeta = function(name, content, id){
+      var m = document.createElement("meta");
+      m.setAttribute("name", name); m.setAttribute("content", content);
+      if (id) m.id = id;
+      head.appendChild(m);
     };
-    var link = document.getElementById("standaloneManifestLink");
-    function useBlobManifest(){
-      try {
-        var blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
-        if (link) link.href = URL.createObjectURL(blob);
-      } catch(e){}
-    }
-    /* 同じ場所に manifest.webmanifest（実ファイル）が置かれている場合は
-       そちらを優先する。無い場合だけ、その場で作ったものを差し込む */
-    if (link && window.fetch){
-      fetch("manifest.webmanifest", { method: "HEAD" }).then(function(res){
-        if (!res.ok) useBlobManifest();
-      }).catch(function(){ useBlobManifest(); });
-    } else useBlobManifest();
-    var apple = document.getElementById("standaloneAppleIcon"); if (apple) apple.href = i192;
-    var fav = document.getElementById("standaloneFavicon"); if (fav) fav.href = i192;
+    addMeta("theme-color", "#3a4d5c", "standaloneThemeColor");
+    addMeta("mobile-web-app-capable", "yes");
+    addMeta("apple-mobile-web-app-capable", "yes");
+    addMeta("apple-mobile-web-app-status-bar-style", "default");
+    addMeta("apple-mobile-web-app-title", "マイメモ");
+    var manifestLink = document.createElement("link");
+    manifestLink.setAttribute("rel", "manifest"); manifestLink.id = "standaloneManifestLink"; manifestLink.setAttribute("href", "manifest.webmanifest");
+    head.appendChild(manifestLink);
+    var appleIcon = document.createElement("link");
+    appleIcon.setAttribute("rel", "apple-touch-icon"); appleIcon.id = "standaloneAppleIcon"; appleIcon.setAttribute("href", "");
+    head.appendChild(appleIcon);
+    var favicon = document.createElement("link");
+    favicon.setAttribute("rel", "icon"); favicon.id = "standaloneFavicon"; favicon.setAttribute("type", "image/png"); favicon.setAttribute("href", "");
+    head.appendChild(favicon);
+    var marker = document.createElement("script");
+    marker.id = "standaloneMarker";
+    marker.textContent = "window.__MYMEMO_STANDALONE__=true;";
+    head.appendChild(marker);
   }
-  function registerSW(){
-    if (!("serviceWorker" in navigator)) return;
-    if (!(location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) return;
-    try {
-      /* 同じ場所に sw.js（実ファイル）が置かれている場合はそちらを登録する */
-      navigator.serviceWorker.register("sw.js").catch(function(){});
-    } catch(e){}
+  if (runtime && body){
+    var runtimeScript = document.createElement("script");
+    runtimeScript.id = "standaloneRuntimeScript";
+    runtimeScript.textContent = runtime;
+    body.appendChild(runtimeScript);
   }
-  var SW_TEXT = "self.addEventListener('install',function(e){self.skipWaiting()});self.addEventListener('activate',function(e){e.waitUntil(clients.claim())});self.addEventListener('fetch',function(e){if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}))});";
-  function companionManifestText(){
-    var manifest = {
-      name: "マイメモ", short_name: "マイメモ", description: "シンプルなメモアプリ",
-      start_url: ".", scope: ".", display: "standalone", orientation: "portrait",
-      theme_color: "#3a4d5c", background_color: "#f5f5f5",
-      icons: [
-        { src: "icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-        { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-        { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
-      ],
-      share_target: { action: ".", method: "GET", enctype: "application/x-www-form-urlencoded",
-        params: { title: "title", text: "text", url: "url" } }
-    };
-    return JSON.stringify(manifest, null, 2);
-  }
-  function saveNamedBlob(blob, name){
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url; a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-  }
-  function addCompanionDownloads(){
-    var overlay = document.getElementById("standaloneSheetOverlay"); if (!overlay) return;
-    var bodyEl = overlay.querySelector(".info-dialog-body"); if (!bodyEl) return;
-    if (document.getElementById("companionDownloads")) return;
-    var wrap = document.createElement("div");
-    wrap.id = "companionDownloads";
-    var note = document.createElement("p");
-    note.className = "share-hint";
-    note.textContent = "共有で受け取る・アプリとしてインストールするには、下の4つのファイルも保存して、index.htmlと同じ場所に置いてください（GitHub Pagesなら同じリポジトリの直下）。置いたあと単独版を開き直すと有効になります。";
-    var row = document.createElement("div");
-    row.className = "share-sub-actions";
-    function addBtn(label, fn){
-      var b = document.createElement("button");
-      b.type = "button"; b.className = "secondary-button"; b.textContent = label;
-      b.addEventListener("click", fn);
-      row.appendChild(b);
-    }
-    addBtn("manifest.webmanifestを保存", function(){ saveNamedBlob(new Blob([companionManifestText()], { type: "application/json" }), "manifest.webmanifest"); });
-    addBtn("sw.jsを保存", function(){ saveNamedBlob(new Blob([SW_TEXT], { type: "text/javascript" }), "sw.js"); });
-    addBtn("icon-192.pngを保存", function(){
-      var d = makeIcon(192); if (!d) return;
-      var a = document.createElement("a"); a.href = d; a.download = "icon-192.png";
-      document.body.appendChild(a); a.click(); a.remove();
-    });
-    addBtn("icon-512.pngを保存", function(){
-      var d = makeIcon(512); if (!d) return;
-      var a = document.createElement("a"); a.href = d; a.download = "icon-512.png";
-      document.body.appendChild(a); a.click(); a.remove();
-    });
-    wrap.appendChild(note);
-    wrap.appendChild(row);
-    bodyEl.appendChild(wrap);
-  }
-  function addBackupDownload(){
-    if (document.getElementById("exportSheetDownloadButton")) return;
-    var overlay = document.getElementById("exportSheetOverlay"); if (!overlay) return;
-    var actions = overlay.querySelector(".share-sub-actions"); if (!actions) return;
-    var btn = document.createElement("button");
-    btn.type = "button"; btn.className = "secondary-button"; btn.id = "exportSheetDownloadButton";
-    btn.textContent = "ダウンロードする";
-    btn.addEventListener("click", function(){
-      var area = document.getElementById("exportSheetText");
-      var fnEl = document.getElementById("exportSheetFilename");
-      var status = document.getElementById("exportSheetStatus");
-      var filename = (fnEl && fnEl.textContent.trim()) || "my-memo-backup.json";
-      var text = area ? area.value : "";
-      try {
-        var blob = new Blob([text], { type: "application/json" });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement("a");
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-        if (status) status.textContent = "ダウンロードしました。";
-      } catch(e){
-        if (status) status.textContent = "ダウンロードできませんでした。「内容をコピーする」を使ってください。";
-      }
-    });
-    actions.insertBefore(btn, actions.firstChild);
-    var hint = document.getElementById("exportSheetHint");
-    if (hint) hint.textContent = "単独版では「ダウンロードする」でバックアップをファイルとして保存できます。コピーで控えることもできます（戻すときは「バックアップを貼り付けて復元する」に貼り付けます）。";
-  }
-  function openShared(){
-    if (!shared) return;
-    var tries = 0;
-    var timer = setInterval(function(){
-      tries++;
-      var overlay = document.getElementById("shareImportOverlay");
-      var titleEl = document.getElementById("shareImportTitleInput");
-      if (typeof window.openShareImport === "function" && overlay && titleEl){
-        clearInterval(timer);
-        var data = shared; shared = null;
-        window.openShareImport();
-        if (data.title) titleEl.value = data.title.slice(0, 200);
-        var body = [data.text, data.url].filter(Boolean).join("\n");
-        var textEl = document.getElementById("shareImportText");
-        if (textEl && body) textEl.value = body;
-        var st = document.getElementById("shareImportStatus");
-        if (st) st.textContent = "共有された文章が入っています。確認して保存してください。";
-        if (typeof window.updateShareImportSplitPreview === "function") window.updateShareImportSplitPreview();
-      } else if (tries > 40){ clearInterval(timer); }
-    }, 250);
-  }
-  function unhideStandaloneSaveButtons(){
-    var d = document.getElementById("standaloneSheetDownloadButton"); if (d) d.hidden = false;
-    var s = document.getElementById("standaloneSheetShareButton"); if (s) s.hidden = false;
-    var hint = document.getElementById("standaloneSheetHint");
-    if (hint) hint.textContent = "保存の方法：「ダウンロードする」でファイルを保存できます。「内容をコピーする」でコピーして、テキストエディタ（メモ帳など）に貼り、ファイル名を index.html にして文字コードUTF-8で保存する方法もあります。";
-  }
-  function init(){ setupPWA(); registerSW(); addBackupDownload(); unhideStandaloneSaveButtons(); addCompanionDownloads(); openShared(); }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
-  else init();
-})();
-
-</script>
-</body>", '<script id="standaloneRuntimeScript">\n' + runtime + "\n<\/script>\n</body>");
-  return html;
+  return "<!doctype html>\n" + root.outerHTML;
 }
 function openStandaloneSheet(){
   var overlay = byId("standaloneSheetOverlay"); if (!overlay || !overlay.hidden) return;
@@ -5096,4 +4915,199 @@ start().catch(function(e){
 </script>
 
 
-</body></html>
+<script id="standaloneRuntimeScript">
+(function(){
+  if (window.__MYMEMO_STANDALONE__ !== true) return;
+  var shared = null;
+  try {
+    var params = new URLSearchParams(location.search);
+    var st = params.get("title") || "", sx = params.get("text") || "", su = params.get("url") || "";
+    if (st || sx || su){
+      shared = { title: st, text: sx, url: su };
+      try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
+    }
+  } catch(e){}
+  function makeIcon(size){
+    try {
+      var c = document.createElement("canvas"); c.width = size; c.height = size;
+      var g = c.getContext("2d"); if (!g) return null;
+      g.fillStyle = "#3a4d5c"; g.fillRect(0, 0, size, size);
+      var m = size * 0.16, w = size - 2 * m, h = size - 2 * m, r = size * 0.06;
+      g.fillStyle = "#ffffff";
+      g.beginPath();
+      g.moveTo(m + r, m);
+      g.lineTo(m + w - r, m); g.quadraticCurveTo(m + w, m, m + w, m + r);
+      g.lineTo(m + w, m + h - r); g.quadraticCurveTo(m + w, m + h, m + w - r, m + h);
+      g.lineTo(m + r, m + h); g.quadraticCurveTo(m, m + h, m, m + h - r);
+      g.lineTo(m, m + r); g.quadraticCurveTo(m, m, m + r, m);
+      g.fill();
+      g.strokeStyle = "#4a90e2"; g.lineWidth = Math.max(2, size * 0.035); g.lineCap = "round";
+      var lx = m + w * 0.16, rx = m + w * 0.84, ys = [0.32, 0.5, 0.68];
+      for (var i = 0; i < ys.length; i++){
+        var y = m + h * ys[i];
+        g.beginPath(); g.moveTo(lx, y); g.lineTo(rx - (i === 2 ? w * 0.22 : 0), y); g.stroke();
+      }
+      return c.toDataURL("image/png");
+    } catch(e){ return null; }
+  }
+  function setupPWA(){
+    var icon192 = makeIcon(192), icon512 = makeIcon(512);
+    var svgFallback = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#3a4d5c"/><rect x="18" y="14" width="64" height="72" rx="6" fill="#ffffff"/><path d="M28 36h44M28 52h44M28 68h30" stroke="#4a90e2" stroke-width="5" stroke-linecap="round"/></svg>');
+    var i192 = icon192 || svgFallback, i512 = icon512 || svgFallback;
+    var t192 = icon192 ? "image/png" : "image/svg+xml", t512 = icon512 ? "image/png" : "image/svg+xml";
+    var base = location.protocol + "//" + location.host + location.pathname;
+    var scope = base.replace(/[^\/]*$/, "");
+    var manifest = {
+      name: "マイメモ", short_name: "マイメモ", description: "シンプルなメモアプリ",
+      start_url: base, scope: scope, display: "standalone", orientation: "portrait",
+      theme_color: "#3a4d5c", background_color: "#f5f5f5",
+      icons: [
+        { src: i192, sizes: "192x192", type: t192, purpose: "any" },
+        { src: i512, sizes: "512x512", type: t512, purpose: "any" },
+        { src: i512, sizes: "512x512", type: t512, purpose: "maskable" }
+      ],
+      share_target: { action: base, method: "GET", enctype: "application/x-www-form-urlencoded",
+        params: { title: "title", text: "text", url: "url" } }
+    };
+    var link = document.getElementById("standaloneManifestLink");
+    function useBlobManifest(){
+      try {
+        var blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+        if (link) link.href = URL.createObjectURL(blob);
+      } catch(e){}
+    }
+    /* 同じ場所に manifest.webmanifest（実ファイル）が置かれている場合は
+       そちらを優先する。無い場合だけ、その場で作ったものを差し込む */
+    if (link && window.fetch){
+      fetch("manifest.webmanifest", { method: "HEAD" }).then(function(res){
+        if (!res.ok) useBlobManifest();
+      }).catch(function(){ useBlobManifest(); });
+    } else useBlobManifest();
+    var apple = document.getElementById("standaloneAppleIcon"); if (apple) apple.href = i192;
+    var fav = document.getElementById("standaloneFavicon"); if (fav) fav.href = i192;
+  }
+  function registerSW(){
+    if (!("serviceWorker" in navigator)) return;
+    if (!(location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) return;
+    try {
+      /* 同じ場所に sw.js（実ファイル）が置かれている場合はそちらを登録する */
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    } catch(e){}
+  }
+  var SW_TEXT = "self.addEventListener('install',function(e){self.skipWaiting()});self.addEventListener('activate',function(e){e.waitUntil(clients.claim())});self.addEventListener('fetch',function(e){if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}))});";
+  function companionManifestText(){
+    var manifest = {
+      name: "マイメモ", short_name: "マイメモ", description: "シンプルなメモアプリ",
+      start_url: ".", scope: ".", display: "standalone", orientation: "portrait",
+      theme_color: "#3a4d5c", background_color: "#f5f5f5",
+      icons: [
+        { src: "icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
+      ],
+      share_target: { action: ".", method: "GET", enctype: "application/x-www-form-urlencoded",
+        params: { title: "title", text: "text", url: "url" } }
+    };
+    return JSON.stringify(manifest, null, 2);
+  }
+  function saveNamedBlob(blob, name){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  }
+  function addCompanionDownloads(){
+    var overlay = document.getElementById("standaloneSheetOverlay"); if (!overlay) return;
+    var bodyEl = overlay.querySelector(".info-dialog-body"); if (!bodyEl) return;
+    if (document.getElementById("companionDownloads")) return;
+    var wrap = document.createElement("div");
+    wrap.id = "companionDownloads";
+    var note = document.createElement("p");
+    note.className = "share-hint";
+    note.textContent = "共有で受け取る・アプリとしてインストールするには、下の4つのファイルも保存して、index.htmlと同じ場所に置いてください（GitHub Pagesなら同じリポジトリの直下）。置いたあと単独版を開き直すと有効になります。";
+    var row = document.createElement("div");
+    row.className = "share-sub-actions";
+    function addBtn(label, fn){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "secondary-button"; b.textContent = label;
+      b.addEventListener("click", fn);
+      row.appendChild(b);
+    }
+    addBtn("manifest.webmanifestを保存", function(){ saveNamedBlob(new Blob([companionManifestText()], { type: "application/json" }), "manifest.webmanifest"); });
+    addBtn("sw.jsを保存", function(){ saveNamedBlob(new Blob([SW_TEXT], { type: "text/javascript" }), "sw.js"); });
+    addBtn("icon-192.pngを保存", function(){
+      var d = makeIcon(192); if (!d) return;
+      var a = document.createElement("a"); a.href = d; a.download = "icon-192.png";
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+    addBtn("icon-512.pngを保存", function(){
+      var d = makeIcon(512); if (!d) return;
+      var a = document.createElement("a"); a.href = d; a.download = "icon-512.png";
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+    wrap.appendChild(note);
+    wrap.appendChild(row);
+    bodyEl.appendChild(wrap);
+  }
+  function addBackupDownload(){
+    if (document.getElementById("exportSheetDownloadButton")) return;
+    var overlay = document.getElementById("exportSheetOverlay"); if (!overlay) return;
+    var actions = overlay.querySelector(".share-sub-actions"); if (!actions) return;
+    var btn = document.createElement("button");
+    btn.type = "button"; btn.className = "secondary-button"; btn.id = "exportSheetDownloadButton";
+    btn.textContent = "ダウンロードする";
+    btn.addEventListener("click", function(){
+      var area = document.getElementById("exportSheetText");
+      var fnEl = document.getElementById("exportSheetFilename");
+      var status = document.getElementById("exportSheetStatus");
+      var filename = (fnEl && fnEl.textContent.trim()) || "my-memo-backup.json";
+      var text = area ? area.value : "";
+      try {
+        var blob = new Blob([text], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+        if (status) status.textContent = "ダウンロードしました。";
+      } catch(e){
+        if (status) status.textContent = "ダウンロードできませんでした。「内容をコピーする」を使ってください。";
+      }
+    });
+    actions.insertBefore(btn, actions.firstChild);
+    var hint = document.getElementById("exportSheetHint");
+    if (hint) hint.textContent = "単独版では「ダウンロードする」でバックアップをファイルとして保存できます。コピーで控えることもできます（戻すときは「バックアップを貼り付けて復元する」に貼り付けます）。";
+  }
+  function openShared(){
+    if (!shared) return;
+    var tries = 0;
+    var timer = setInterval(function(){
+      tries++;
+      var overlay = document.getElementById("shareImportOverlay");
+      var titleEl = document.getElementById("shareImportTitleInput");
+      if (typeof window.openShareImport === "function" && overlay && titleEl){
+        clearInterval(timer);
+        var data = shared; shared = null;
+        window.openShareImport();
+        if (data.title) titleEl.value = data.title.slice(0, 200);
+        var body = [data.text, data.url].filter(Boolean).join("\n");
+        var textEl = document.getElementById("shareImportText");
+        if (textEl && body) textEl.value = body;
+        var st = document.getElementById("shareImportStatus");
+        if (st) st.textContent = "共有された文章が入っています。確認して保存してください。";
+        if (typeof window.updateShareImportSplitPreview === "function") window.updateShareImportSplitPreview();
+      } else if (tries > 40){ clearInterval(timer); }
+    }, 250);
+  }
+  function unhideStandaloneSaveButtons(){
+    var d = document.getElementById("standaloneSheetDownloadButton"); if (d) d.hidden = false;
+    var s = document.getElementById("standaloneSheetShareButton"); if (s) s.hidden = false;
+    var hint = document.getElementById("standaloneSheetHint");
+    if (hint) hint.textContent = "保存の方法：「ダウンロードする」でファイルを保存できます。「内容をコピーする」でコピーして、テキストエディタ（メモ帳など）に貼り、ファイル名を index.html にして文字コードUTF-8で保存する方法もあります。";
+  }
+  function init(){ setupPWA(); registerSW(); addBackupDownload(); unhideStandaloneSaveButtons(); addCompanionDownloads(); openShared(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+</script></body></html>
