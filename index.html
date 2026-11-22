@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px; --header-height: 0px; --bottom-padding: 24px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
+<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
@@ -1421,6 +1421,28 @@
     if (st || sx || su){
       shared = { title: st, text: sx, url: su };
       try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
+    } else if (params.get("sharepost")){
+      /* POST方式の共有で開かれた場合：本文はService Workerが
+         Cache Storageへ預けてあり、URLには目印（sharepost=1）しか
+         付いていない。ここで預けた本文を読み取って取り込む */
+      try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
+      if (window.caches){
+        var shareKey = location.origin + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
+        caches.open("mymemo-share-v1").then(function(cache){
+          return cache.match(shareKey).then(function(res){
+            if (!res) return;
+            cache.delete(shareKey).catch(function(){});
+            return res.json().then(function(d){
+              if (d && (d.title || d.text || d.url)){
+                /* multipart形式では改行が \r\n になって届くことがあるので \n へ戻す */
+                var norm = function(v){ return String(v || "").replace(/\r\n/g, "\n"); };
+                shared = { title: norm(d.title), text: norm(d.text), url: norm(d.url) };
+                openShared();
+              }
+            });
+          });
+        }).catch(function(){});
+      }
     }
   } catch(e){}
   /* アイコンは元の v11.4 の絵（icon.png）そのものを使う。以前はここで
@@ -1489,7 +1511,10 @@
         { src: i512, sizes: s512, type: t512, purpose: "any" },
         { src: i512, sizes: s512, type: t512, purpose: "maskable" }
       ],
-      share_target: { action: base, method: "GET", enctype: "application/x-www-form-urlencoded",
+      /* 共有はPOST方式にする。GET方式だと共有テキストが丸ごとURLに載り、
+         長いメモでは「URI Too Long」エラーになるため。本文はService Worker
+         （sw.js）がCache Storageへ預け、アプリへは短い目印だけ渡す */
+      share_target: { action: base, method: "POST", enctype: "multipart/form-data",
         params: { title: "title", text: "text", url: "url" } }
     };
     var link = document.getElementById("standaloneManifestLink");
@@ -1517,7 +1542,35 @@
       navigator.serviceWorker.register("sw.js").catch(function(){});
     } catch(e){}
   }
-  var SW_TEXT = "self.addEventListener('install',function(e){self.skipWaiting()});self.addEventListener('activate',function(e){e.waitUntil(clients.claim())});self.addEventListener('fetch',function(e){if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}))});";
+  /* sw.js の中身。共有ターゲットはPOST方式なので、共有のPOSTが来たら
+     本文（title/text/url）をCache Storageへ預けてから、短い目印
+     （?sharepost=1）だけを付けたURLへ303リダイレクトで返す。
+     本文をURLに載せないので、長いメモでも「URI Too Long」にならない。
+     アプリ側は起動時に目印を見て、預けた本文を取り込む */
+  var SW_TEXT = [
+    "var SHARE_CACHE='mymemo-share-v1';",
+    "function shareKey(){try{return new URL('__mymemo_shared__',self.registration.scope).href;}catch(e){return '__mymemo_shared__';}}",
+    "function fv(fd,n){var v=fd.get(n);return typeof v==='string'?v:'';}",
+    "self.addEventListener('install',function(e){self.skipWaiting()});",
+    "self.addEventListener('activate',function(e){e.waitUntil(clients.claim())});",
+    "self.addEventListener('fetch',function(e){",
+    "if(e.request.method==='POST'){",
+    "var u;try{u=new URL(e.request.url);}catch(err){return;}",
+    "var scopePath='/';try{scopePath=new URL(self.registration.scope).pathname;}catch(err){}",
+    "if(u.origin!==self.location.origin||u.pathname.indexOf(scopePath)!==0)return;",
+    "e.respondWith((async function(){",
+    "try{",
+    "var fd=await e.request.formData();",
+    "var data={title:fv(fd,'title'),text:fv(fd,'text'),url:fv(fd,'url')};",
+    "var cache=await caches.open(SHARE_CACHE);",
+    "await cache.put(shareKey(),new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}}));",
+    "}catch(err){}",
+    "return Response.redirect(new URL('?sharepost=1',self.registration.scope).href,303);",
+    "})());",
+    "return;}",
+    "e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}));",
+    "});"
+  ].join("\n");
   function companionManifestText(){
     var manifest = {
       name: "マイメモ", short_name: "マイメモ", description: "シンプルなメモアプリ",
@@ -1528,7 +1581,8 @@
         { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
         { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
       ],
-      share_target: { action: ".", method: "GET", enctype: "application/x-www-form-urlencoded",
+      /* POST方式（理由は setupPWA 側のコメント参照） */
+      share_target: { action: ".", method: "POST", enctype: "multipart/form-data",
         params: { title: "title", text: "text", url: "url" } }
     };
     return JSON.stringify(manifest, null, 2);
@@ -5298,6 +5352,30 @@ function start(){
           if (body) byId("shareImportText").value = body;
           byId("shareImportStatus").textContent = "共有された文章が入っています。確認して保存してください。";
           updateShareImportSplitPreview();
+        } else if (params.get("sharepost") && window.caches){
+          /* 共有ターゲット（POST方式）で開かれた場合：本文はURLに載って
+             おらず、Service WorkerがCache Storageへ預けてあるので、
+             それを読み取って取り込み画面へ入れる（読んだら消す。
+             単独版ランタイム側と二重に取り込まないため） */
+          try { history.replaceState({myMemo:true, screen:"list"}, "", location.pathname + location.hash); } catch(e){}
+          var postShareKey = location.origin + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
+          caches.open("mymemo-share-v1").then(function(cache){
+            return cache.match(postShareKey).then(function(res){
+              if (!res) return;
+              cache.delete(postShareKey).catch(function(){});
+              return res.json().then(function(d){
+                if (!d || !(d.title || d.text || d.url)) return;
+                /* multipart形式では改行が \r\n になって届くことがあるので \n へ戻す */
+                var normPost = function(v){ return String(v || "").replace(/\r\n/g, "\n"); };
+                openShareImport();
+                if (d.title) byId("shareImportTitleInput").value = normPost(d.title).slice(0, 200);
+                var postBody = [normPost(d.text), normPost(d.url)].filter(Boolean).join("\n");
+                if (postBody) byId("shareImportText").value = postBody;
+                byId("shareImportStatus").textContent = "共有された文章が入っています。確認して保存してください。";
+                updateShareImportSplitPreview();
+              });
+            });
+          }).catch(function(){});
         }
       } catch(e){}
       initSync();
@@ -5321,6 +5399,28 @@ start().catch(function(e){
     if (st || sx || su){
       shared = { title: st, text: sx, url: su };
       try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
+    } else if (params.get("sharepost")){
+      /* POST方式の共有で開かれた場合：本文はService Workerが
+         Cache Storageへ預けてあり、URLには目印（sharepost=1）しか
+         付いていない。ここで預けた本文を読み取って取り込む */
+      try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
+      if (window.caches){
+        var shareKey = location.origin + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
+        caches.open("mymemo-share-v1").then(function(cache){
+          return cache.match(shareKey).then(function(res){
+            if (!res) return;
+            cache.delete(shareKey).catch(function(){});
+            return res.json().then(function(d){
+              if (d && (d.title || d.text || d.url)){
+                /* multipart形式では改行が \r\n になって届くことがあるので \n へ戻す */
+                var norm = function(v){ return String(v || "").replace(/\r\n/g, "\n"); };
+                shared = { title: norm(d.title), text: norm(d.text), url: norm(d.url) };
+                openShared();
+              }
+            });
+          });
+        }).catch(function(){});
+      }
     }
   } catch(e){}
   /* アイコンは元の v11.4 の絵（icon.png）そのものを使う。以前はここで
@@ -5389,7 +5489,10 @@ start().catch(function(e){
         { src: i512, sizes: s512, type: t512, purpose: "any" },
         { src: i512, sizes: s512, type: t512, purpose: "maskable" }
       ],
-      share_target: { action: base, method: "GET", enctype: "application/x-www-form-urlencoded",
+      /* 共有はPOST方式にする。GET方式だと共有テキストが丸ごとURLに載り、
+         長いメモでは「URI Too Long」エラーになるため。本文はService Worker
+         （sw.js）がCache Storageへ預け、アプリへは短い目印だけ渡す */
+      share_target: { action: base, method: "POST", enctype: "multipart/form-data",
         params: { title: "title", text: "text", url: "url" } }
     };
     var link = document.getElementById("standaloneManifestLink");
@@ -5417,7 +5520,35 @@ start().catch(function(e){
       navigator.serviceWorker.register("sw.js").catch(function(){});
     } catch(e){}
   }
-  var SW_TEXT = "self.addEventListener('install',function(e){self.skipWaiting()});self.addEventListener('activate',function(e){e.waitUntil(clients.claim())});self.addEventListener('fetch',function(e){if(e.request.method!=='GET')return;e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}))});";
+  /* sw.js の中身。共有ターゲットはPOST方式なので、共有のPOSTが来たら
+     本文（title/text/url）をCache Storageへ預けてから、短い目印
+     （?sharepost=1）だけを付けたURLへ303リダイレクトで返す。
+     本文をURLに載せないので、長いメモでも「URI Too Long」にならない。
+     アプリ側は起動時に目印を見て、預けた本文を取り込む */
+  var SW_TEXT = [
+    "var SHARE_CACHE='mymemo-share-v1';",
+    "function shareKey(){try{return new URL('__mymemo_shared__',self.registration.scope).href;}catch(e){return '__mymemo_shared__';}}",
+    "function fv(fd,n){var v=fd.get(n);return typeof v==='string'?v:'';}",
+    "self.addEventListener('install',function(e){self.skipWaiting()});",
+    "self.addEventListener('activate',function(e){e.waitUntil(clients.claim())});",
+    "self.addEventListener('fetch',function(e){",
+    "if(e.request.method==='POST'){",
+    "var u;try{u=new URL(e.request.url);}catch(err){return;}",
+    "var scopePath='/';try{scopePath=new URL(self.registration.scope).pathname;}catch(err){}",
+    "if(u.origin!==self.location.origin||u.pathname.indexOf(scopePath)!==0)return;",
+    "e.respondWith((async function(){",
+    "try{",
+    "var fd=await e.request.formData();",
+    "var data={title:fv(fd,'title'),text:fv(fd,'text'),url:fv(fd,'url')};",
+    "var cache=await caches.open(SHARE_CACHE);",
+    "await cache.put(shareKey(),new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}}));",
+    "}catch(err){}",
+    "return Response.redirect(new URL('?sharepost=1',self.registration.scope).href,303);",
+    "})());",
+    "return;}",
+    "e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}));",
+    "});"
+  ].join("\n");
   function companionManifestText(){
     var manifest = {
       name: "マイメモ", short_name: "マイメモ", description: "シンプルなメモアプリ",
@@ -5428,7 +5559,8 @@ start().catch(function(e){
         { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
         { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
       ],
-      share_target: { action: ".", method: "GET", enctype: "application/x-www-form-urlencoded",
+      /* POST方式（理由は setupPWA 側のコメント参照） */
+      share_target: { action: ".", method: "POST", enctype: "multipart/form-data",
         params: { title: "title", text: "text", url: "url" } }
     };
     return JSON.stringify(manifest, null, 2);
