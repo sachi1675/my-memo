@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px; --header-height: 0px; --bottom-padding: 24px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
+<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
@@ -1205,7 +1205,7 @@
     <div class="edit-area">
       <input id="titleInput" class="editor-title" maxlength="200" placeholder="タイトルを入力..." aria-label="タイトル">
       <textarea id="contentInput" class="editor-body" placeholder="ここにメモを入力..." aria-label="本文"></textarea>
-      <div id="todoEditContainer" class="todo-edit-container" style="display: none;">
+      <div id="todoEditContainer" class="todo-edit-container">
         <div id="todoEditorList" class="todo-editor-list"></div>
         <p id="todoEditorNotice" class="todo-notice" role="status" aria-live="polite" hidden=""></p>
         <div class="todo-add-row">
@@ -1214,7 +1214,7 @@
         </div>
       </div>
     </div>
-    <p id="saveStatus" hidden="" aria-live="polite">前回の未保存内容を復元しました。</p>
+    <p id="saveStatus" hidden="" aria-live="polite"></p>
   </section>
 
   <!-- フォルダ管理（v11.4の全画面モーダル：構成の編集＋タブ） -->
@@ -1403,10 +1403,10 @@
 <div id="modalOverlay" class="modal-overlay" hidden="">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalMessage">
     <p id="modalMessage"></p>
-    <div id="modalButtons" class="modal-buttons"><button type="button" class="primary-button">保存して戻る</button><button type="button" class="danger-button">変更を破棄して戻る</button><button type="button" class="secondary-button">編集を続ける</button></div>
+    <div id="modalButtons" class="modal-buttons"></div>
   </div>
 </div>
-<div id="toast" class="toast" hidden="">保存しました</div>
+<div id="toast" class="toast" hidden=""></div>
 
 <!-- 単独版専用ランタイムのひな形。type="text/plain" のため、この画面（Muse版）では
      実行されない。単独版HTMLを作成するときにだけ、通常の script として単独版へ
@@ -2451,9 +2451,38 @@ function applyResumeFolder(folderId){
   state.currentFolderId = folderId;
   pushFolderEntry();
 }
+/* 起動時の復元で積んだ履歴は、利用者の操作の外で積まれている。
+   スマホのブラウザは「操作なしで積まれた履歴」を戻る操作のときに
+   飛ばすことがあり、復元したプレビューで戻ると履歴が尽きてアプリが
+   閉じてしまっていた（重なり表示の節で記録したのと同じ現象）。
+   そこで、復元した画面では利用者が最初に画面へ触れた（＝操作が
+   あった）時点で、現在の履歴をその場で刻み直して操作ありの履歴に
+   変えておく。刻み直しは今いる画面の履歴だけに行い、画面遷移や
+   アプリ内スタックには触れない */
+var restoredEntryRearmArmed = false;
+function armRestoredEntryRearm(){
+  if (restoredEntryRearmArmed) return;
+  restoredEntryRearmArmed = true;
+  function rearm(){
+    restoredEntryRearmArmed = false;
+    document.removeEventListener("pointerdown", rearm, true);
+    document.removeEventListener("touchstart", rearm, true);
+    document.removeEventListener("keydown", rearm, true);
+    try { history.replaceState({myMemo:true, screen:state.screen}, ""); } catch(e){}
+  }
+  document.addEventListener("pointerdown", rearm, true);
+  document.addEventListener("touchstart", rearm, true);
+  document.addEventListener("keydown", rearm, true);
+}
 function restoreLastView(){
   var rec = pendingResume; pendingResume = null;
-  function done(){ resumeReady = true; saveResumeState(); }
+  var restoredScreen = false; /* プレビュー／編集を実際に開いたか */
+  function done(){
+    resumeReady = true; saveResumeState();
+    /* 復元で画面を開いた場合は、その履歴を操作ありに変える仕掛けを
+       armed にしておく（上の armRestoredEntryRearm のコメント参照） */
+    if (restoredScreen) armRestoredEntryRearm();
+  }
   if (!rec || typeof rec !== "object"){ done(); return Promise.resolve(); }
   if (rec.screen === "preview" && rec.memoId){
     return memoRepo.get(rec.memoId).then(function(memo){
@@ -2463,7 +2492,21 @@ function restoreLastView(){
          トップからの開き直しになる） */
       return resolveResumeFolderId(rec.folderId).then(function(fid){
         applyResumeFolder(fid);
-        return openPreview(memo.id);
+        /* 編集の復元と同じく、下の一覧分のアプリ内スタックとブラウザ
+           履歴を明示的に積んでからプレビューを開く。汎用の openPreview
+           （navigate 経由）に任せずここで積むことで、復元時の積み方が
+           編集側とそろい、戻る操作でプレビュー→（フォルダ内）一覧→
+           トップと辿れる */
+        state.history.push(captureCtx());
+        state.screen = "preview";
+        state.currentMemoId = memo.id;
+        /* v11.4どおり、一覧の検索語があればプレビューのメモ内検索をその語で開く */
+        state.previewFilter = state.listFilter || "";
+        previewSearchOpen = !!state.previewFilter;
+        pushScreenEntry();
+        renderRoute();
+        restoredScreen = true;
+        return openPreviewContent(memo.id);
       });
     }).catch(function(e){ console.error(e); }).then(done);
   }
@@ -2477,6 +2520,7 @@ function restoreLastView(){
         /* 新規メモの下書きを再開する。フォルダ内から作り始めた場合は、
            戻り先のフォルダ表示も一緒に復元する */
         applyResumeFolder(resumeFolderId);
+        restoredScreen = true;
         return openEditor(null, true, true, dk, true);
       }
       /* 新規メモを未入力で開いていただけなら、戻る先は一覧のまま */
@@ -2503,6 +2547,7 @@ function restoreLastView(){
           state.currentMemoId = rec.memoId;
           pushScreenEntry();
         }
+        restoredScreen = true;
         if (draft){
           /* 下書きが残っていれば、確認を出さずそのまま編集を再開する。
              第5引数で「再読み込みからの自動復元」であることを伝える
@@ -5780,6 +5825,13 @@ function start(){
        （復元が終わるまで saveResumeState は上書きしない） */
     var rvRec = (data.settings || []).filter(function(s){ return s && s.key === RESUME_KEY; })[0];
     pendingResume = rvRec ? rvRec.value : null;
+    /* 読み取った控えは、その場で保存側を無効化しておく（消費は一度きり）。
+       復元できた画面は restoreLastView の done() が改めて記録し直すため、
+       再読み込みしながら見続ける使い方には影響しない。一方、復元の途中で
+       アプリが閉じたり、戻る操作で一覧へ辿り着けないまま終了したりしても、
+       古い控えが残り続けて次回以降の起動のたびに同じメモが勝手に開く、
+       ということが起きないようにする */
+    if (pendingResume) putSettingValue(RESUME_KEY, null).catch(function(){});
     var issues = auditData(data);
     if (issues.length){
       integrityNotice = "保存データの確認事項 " + issues.length + "件";
