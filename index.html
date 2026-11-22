@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
+<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px; --header-height: 0px; --bottom-padding: 24px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
@@ -1205,7 +1205,7 @@
     <div class="edit-area">
       <input id="titleInput" class="editor-title" maxlength="200" placeholder="タイトルを入力..." aria-label="タイトル">
       <textarea id="contentInput" class="editor-body" placeholder="ここにメモを入力..." aria-label="本文"></textarea>
-      <div id="todoEditContainer" class="todo-edit-container">
+      <div id="todoEditContainer" class="todo-edit-container" style="display: none;">
         <div id="todoEditorList" class="todo-editor-list"></div>
         <p id="todoEditorNotice" class="todo-notice" role="status" aria-live="polite" hidden=""></p>
         <div class="todo-add-row">
@@ -1214,7 +1214,7 @@
         </div>
       </div>
     </div>
-    <p id="saveStatus" hidden="" aria-live="polite"></p>
+    <p id="saveStatus" hidden="" aria-live="polite">入力内容は自動保存されます（下書き）。「保存」でメモとして確定します。</p>
   </section>
 
   <!-- フォルダ管理（v11.4の全画面モーダル：構成の編集＋タブ） -->
@@ -2418,22 +2418,125 @@ function renderRoute(){
   document.body.setAttribute("data-screen", state.screen);
   var pm = byId("previewOptionsMenu"); if (pm) pm.hidden = true;
   var em = byId("editorOptionsMenu"); if (em) em.hidden = true;
+  /* 画面遷移でメニューが閉じたとき、積んだままの履歴があれば印を付けて
+     あとで消費されたときに飲み込めるようにする */
+  staleOverlayEntry(optionsMenuState);
 }
 /* ドロワー（v11.4サイドバー）の開閉 */
 function openDrawer(){
   var d = byId("drawer"), o = byId("drawerOverlay");
   if (d) d.classList.add("open");
   if (o) o.hidden = false;
+  /* 端末の戻るでドロワーだけを閉じられるよう、開くときに専用の履歴を1件積む */
+  pushOverlayEntry(drawerState, "drawer");
 }
 function closeDrawer(){
   var d = byId("drawer"), o = byId("drawerOverlay");
   if (d) d.classList.remove("open");
   if (o) o.hidden = true;
 }
+/* 背景タップで閉じる：積んだ履歴を消費してから閉じる */
+function requestCloseDrawer(){
+  if (!isDrawerOpen()) return;
+  requestCloseOverlay(drawerState, closeDrawer);
+}
+/* ドロワーの項目から別の画面・シートへ進むとき：履歴を消費して
+   ドロワーを閉じてから続きを実行する */
+function closeDrawerAndThen(cb){
+  if (!isDrawerOpen()){ cb(); return; }
+  closeDrawer();
+  consumeOverlayEntry(drawerState, cb);
+}
+/* 端末の戻るでドロワー用の履歴が消費されたとき：ドロワーだけを閉じる */
+function handleDrawerPop(){
+  overlayEntryPopped(drawerState);
+  closeDrawer();
+}
 function closeFabMenu(){
   var m = byId("fabMenu"), t = byId("fabToggle");
   if (m) m.hidden = true;
   if (t) t.setAttribute("aria-expanded", "false");
+}
+/* ---------- 重なり表示と履歴の連携（共通の仕組み） ----------
+   メニュー・ドロワー・ダイアログ・パネルなど、画面の上に重なる表示は、
+   開くとき（利用者のタップの中）に専用の履歴を1件積み、端末の戻るでは
+   その履歴だけを使って重なりを閉じる（下の画面は遷移させない）。
+   ポップアップ（モーダル）やシート類、＋メニューと同じ方式。
+   以前これらの重なりは専用の履歴を持たず、戻るで消費された画面の履歴を
+   popstate の中で積み直して対応を保っていたが、操作なしで積まれた履歴は
+   スマホのブラウザに戻る操作で飛ばされることがあり、次の戻るでアプリが
+   閉じてしまっていた（⋮メニュー、ドロワーなどで実際に発生した）。
+   ボタンや背景タップで閉じるときは、積んだ履歴を消費してから閉じる
+   （popstate が届かない環境向けの保険つき。シート類と同じ）。 */
+function makeOverlayEntry(){
+  return { entryPushed:false, afterConsume:null, seq:0, closing:false };
+}
+var drawerState = makeOverlayEntry();         /* ドロワー */
+var optionsMenuState = makeOverlayEntry();    /* ⋮メニュー（プレビュー／編集） */
+var optionsMenuEntrySeq = 0;                  /* ⋮メニュー用履歴を積んだ順序 */
+var moveDialogState = makeOverlayEntry();     /* 移動先フォルダ選択ダイアログ */
+var todoDetailState = makeOverlayEntry();     /* ToDo詳細パネル */
+var replacePanelState = makeOverlayEntry();   /* 置換パネル */
+var replaceSessionState = makeOverlayEntry(); /* 置換の1件ずつ確認 */
+var selectionState = makeOverlayEntry();      /* 一覧の選択モード */
+var selectionEntrySeq = 0;                    /* 選択用履歴を積んだ順序 */
+/* 開くとき：利用者の操作の中で専用の履歴を1件積む */
+function pushOverlayEntry(st, name){
+  if (st.entryPushed) return;
+  try { history.pushState({myMemo:true, screen:state.screen, overlay:name}, ""); st.entryPushed = true; }
+  catch(e){ st.entryPushed = false; }
+}
+/* 端末の戻るで専用の履歴が消費されたとき（popstate から呼ぶ）。
+   閉じる後処理が予約されていればそれを実行し、実行したら true を返す */
+function overlayEntryPopped(st){
+  st.entryPushed = false;
+  st.closing = false;
+  st.seq++;
+  if (st.afterConsume){ var cb = st.afterConsume; st.afterConsume = null; cb(); return true; }
+  return false;
+}
+/* ボタン等で閉じるとき：積んだ履歴を消費し、消費できたら後処理を実行する。
+   見た目は呼び出し側で先に閉じておくこと */
+function consumeOverlayEntry(st, cb){
+  if (!st.entryPushed){ cb(); return; }
+  st.entryPushed = false;
+  st.afterConsume = cb;
+  var seq = ++st.seq;
+  try { history.back(); } catch(e){}
+  /* popstate が届かない環境向けの保険：一定時間で後処理を実行し、
+     遅れて届いた popstate は swallowPopUntil で飲み込む */
+  setTimeout(function(){
+    if (seq !== st.seq || st.afterConsume !== cb) return;
+    st.afterConsume = null;
+    swallowPopUntil = Date.now() + 1500;
+    cb();
+  }, 450);
+}
+/* ボタン等で閉じるとき（履歴の消費が済んでから見た目を閉じる場合）：
+   閉じる処理自体を後処理として予約する */
+function requestCloseOverlay(st, closeFn){
+  if (!st.entryPushed){ closeFn(); return; }
+  if (st.closing) return;
+  st.entryPushed = false;
+  st.closing = true;
+  var wrapped = function(){ st.closing = false; closeFn(); };
+  st.afterConsume = wrapped;
+  var seq = ++st.seq;
+  try { history.back(); } catch(e){}
+  setTimeout(function(){
+    if (seq !== st.seq || st.afterConsume !== wrapped) return;
+    st.afterConsume = null;
+    st.closing = false;
+    swallowPopUntil = Date.now() + 1500;
+    closeFn();
+  }, 450);
+}
+/* 別の操作の副作用で重なりが消えるとき：履歴自体は残したままにし、
+   あとで戻る操作で消費されたときに何もせず飲み込む印だけを付ける
+   （履歴の件数と見た目の対応だけを保つ） */
+function staleOverlayEntry(st){
+  if (st.entryPushed){ st.entryPushed = false; st.afterConsume = function(){}; }
+  st.closing = false;
 }
 /* ---------- ＋メニューと履歴の連携 ----------
    ＋メニューを開くときに履歴を1件積み、端末の戻るではその履歴だけを
@@ -2616,9 +2719,27 @@ function handleFolderPop(){
   folderEntryPushed = false; folderEntrySeq = 0;
   folderCloseSeq++;
   state.currentFolderId = null;
+  /* 選択も一緒に解除されるため、選択用に積んだ履歴が残っていれば
+     印を付けて、あとで消費されたときに飲み込めるようにする */
+  staleOverlayEntry(selectionState); selectionEntrySeq = 0;
   selectedMemoIds.clear();
   renderList().catch(function(e){ console.error(e); });
   renderRoute();
+}
+/* 端末の戻るで選択モード用の履歴が消費されたとき：選択だけを解除して
+   一覧に留まる（画面側の履歴は消費していないので、次の戻るで通常の
+   戻る処理になる） */
+function handleSelectionPop(){
+  overlayEntryPopped(selectionState);
+  selectionEntrySeq = 0;
+  selectedMemoIds.clear();
+  renderList().catch(function(e){ console.error(e); });
+}
+/* 選択がボタン操作などで解除されたとき：積んだ履歴を静かに消費する */
+function disarmSelectionSilently(){
+  if (!selectionState.entryPushed) return;
+  selectionEntrySeq = 0;
+  consumeOverlayEntry(selectionState, function(){});
 }
 /* 「すべて」タップでフォルダを抜けるとき：積んだ履歴を静かに消費する */
 function consumeFolderEntrySilently(){
@@ -2741,6 +2862,43 @@ function closeOptionsMenus(){
   var pm = byId("previewOptionsMenu"); if (pm) pm.hidden = true;
   var em = byId("editorOptionsMenu"); if (em) em.hidden = true;
 }
+/* ⋮メニューを開く：端末の戻るでメニューだけを閉じられるよう、
+   開くときに専用の履歴を1件積む */
+function openOptionsMenu(id){
+  var m = byId(id); if (!m) return;
+  closeOptionsMenus();
+  m.hidden = false;
+  pushOverlayEntry(optionsMenuState, "optionsMenu");
+  optionsMenuEntrySeq = ++overlayEntrySeq;
+}
+/* ⋮ボタンの再タップ・外側タップで閉じる：積んだ履歴を消費してから閉じる */
+function requestCloseOptionsMenu(){
+  if (!isOptionsMenuOpen()) return;
+  requestCloseOverlay(optionsMenuState, closeOptionsMenus);
+}
+/* メニューの項目から別の画面・ポップへ進むとき：履歴を消費して
+   メニューを閉じてから続きを実行する */
+function closeOptionsMenuAndThen(cb){
+  if (!isOptionsMenuOpen()){ cb(); return; }
+  closeOptionsMenus();
+  consumeOverlayEntry(optionsMenuState, cb);
+}
+/* 端末の戻るで各重なり表示用の履歴が消費されたときの処理：
+   その重なりだけを閉じて、下の画面は遷移させない */
+function hideMoveDialog(){ var d = byId("moveDialog"); if (d) d.hidden = true; }
+function handleMoveDialogPop(){ overlayEntryPopped(moveDialogState); hideMoveDialog(); }
+function requestCloseMoveDialog(){
+  if (!isMoveDialogOpen()) return;
+  requestCloseOverlay(moveDialogState, hideMoveDialog);
+}
+function handleTodoDetailPop(){ overlayEntryPopped(todoDetailState); closeTodoDetail(); }
+function requestCloseTodoDetail(){
+  if (!isTodoDetailOpen()) return;
+  requestCloseOverlay(todoDetailState, closeTodoDetail);
+}
+function handleOptionsMenuPop(){ overlayEntryPopped(optionsMenuState); closeOptionsMenus(); }
+function handleReplacePanelPop(){ overlayEntryPopped(replacePanelState); toggleReplaceArea(false); }
+function handleReplaceSessionPop(){ overlayEntryPopped(replaceSessionState); finishReplaceSession(true); }
 window.addEventListener("popstate", function(){
   /* フォールバック処理済みの遅れて届いた popstate は飲み込む */
   if (Date.now() < swallowPopUntil){ swallowPopUntil = 0; return; }
@@ -2805,6 +2963,17 @@ window.addEventListener("popstate", function(){
     afterFolder();
     return;
   }
+  /* 重なり表示（ドロワー／⋮メニュー／移動ダイアログ／ToDo詳細／
+     置換パネル／置換確認／選択モード）用の履歴が、ボタン側の閉じる
+     操作で消費された場合：予約された後処理だけを実行する
+     （下の画面は遷移させない） */
+  if (drawerState.afterConsume){ overlayEntryPopped(drawerState); return; }
+  if (optionsMenuState.afterConsume){ overlayEntryPopped(optionsMenuState); return; }
+  if (moveDialogState.afterConsume){ overlayEntryPopped(moveDialogState); return; }
+  if (todoDetailState.afterConsume){ overlayEntryPopped(todoDetailState); return; }
+  if (replacePanelState.afterConsume){ overlayEntryPopped(replacePanelState); return; }
+  if (replaceSessionState.afterConsume){ overlayEntryPopped(replaceSessionState); return; }
+  if (selectionState.afterConsume){ overlayEntryPopped(selectionState); return; }
   /* ポップアップ用の履歴が消費された場合：ポップアップだけを閉じて
      キャンセル相当の答えを返し、下の画面は遷移させない。ポップアップの
      履歴は画面の履歴より後に積まれているため、画面遷移（pendingBack）
@@ -2824,29 +2993,32 @@ window.addEventListener("popstate", function(){
      画面と履歴がずれることがないようにする */
   if (pendingBack){ handlePop(); return; }
   /* 移動先フォルダ選択ダイアログが開いているときは、端末の戻るで
-     ダイアログだけを閉じる（キャンセルと同じ）。専用の履歴はないため、
-     消費した履歴1件分は積み直して対応を保つ */
-  if (isMoveDialogOpen()){ byId("moveDialog").hidden = true; pushScreenEntry(); return; }
+     ダイアログだけを閉じる（キャンセルと同じ） */
+  if (isMoveDialogOpen()){ handleMoveDialogPop(); return; }
   /* ドロワー（メニュー）が開いているときは、端末の戻るでドロワーだけを
      閉じる（＋メニューは上の専用判定で処理済み） */
-  if (isDrawerOpen()){ closeDrawer(); pushScreenEntry(); return; }
+  if (isDrawerOpen()){ handleDrawerPop(); return; }
   /* 画面の上に重なっている要素が開いているときは、端末の戻るを
-     まずその要素のために使う。これらには専用の履歴がないため、
-     そのまま画面遷移として処理すると下の画面の履歴だけが消費され、
-     画面と履歴がずれて、次の戻るでアプリが閉じてしまう。
-     消費した履歴1件分は積み直して対応を保ち、要素は開いたまま／
-     閉じるだけにして、画面自体は遷移させない */
+     まずその要素のために使う。各要素は開くときに専用の履歴を積んで
+     いるため、消費されたのはその履歴であり、下の画面は遷移させない */
   if (state.screen === "editor" && isTodoDetailOpen()){
-    closeTodoDetail();
-    pushScreenEntry();
+    handleTodoDetailPop();
     return;
   }
   /* 置換を1件ずつ確認している途中なら、戻るはまず確認をやめるために
      使う（検索文字の消去より先。確認中の候補はセッション側が保持して
      いるため、検索窓を消すと確認だけが宙に浮いてしまう） */
   if (state.screen === "editor" && replaceSession){
-    finishReplaceSession(true);
-    pushScreenEntry();
+    handleReplaceSessionPop();
+    return;
+  }
+  /* 選択モード用の履歴が消費された場合：選択だけを解除して一覧に
+     留まる。検索・フォルダより後に積まれているとき（選択が一番上の
+     状態のとき）だけ先に処理し、そうでなければ各側に譲る */
+  if (selectionState.entryPushed && state.screen === "list" && selectedMemoIds.size &&
+      (!searchEntryPushed || selectionEntrySeq >= searchEntrySeq) &&
+      (!folderEntryPushed || selectionEntrySeq >= folderEntrySeq)){
+    handleSelectionPop();
     return;
   }
   /* フォルダ用の履歴が消費された場合：フォルダを抜けて「すべて」の
@@ -2854,7 +3026,8 @@ window.addEventListener("popstate", function(){
      後に積まれている場合（フォルダ表示の中で検索文字を入れた場合）は
      そちらが先に消費されるはずなので、この判定は検索側に譲る */
   if (folderEntryPushed && state.screen === "list" && state.currentFolderId &&
-      (!searchEntryPushed || folderEntrySeq >= searchEntrySeq)){
+      (!searchEntryPushed || folderEntrySeq >= searchEntrySeq) &&
+      (!selectionState.entryPushed || folderEntrySeq >= selectionEntrySeq)){
     handleFolderPop();
     return;
   }
@@ -2863,6 +3036,12 @@ window.addEventListener("popstate", function(){
      通常どおり前の画面に戻れる。画面遷移などで検索用の履歴が下に埋まって
      いた場合は、この pop は画面側のものとして通常処理に渡す */
   if (searchEntryPushed){
+    /* ⋮メニューが検索より後に開かれているときは、消費されたのは
+       メニュー用の履歴なので、検索文字ではなくメニューを閉じる */
+    if (optionsMenuState.entryPushed && isOptionsMenuOpen() && optionsMenuEntrySeq > searchEntrySeq){
+      handleOptionsMenuPop();
+      return;
+    }
     var searchCtx = getCurrentSearchContext();
     if (searchCtx && searchCtx.key === searchEntryKey){ handleSearchPop(); return; }
     searchEntryPushed = false; searchEntryKey = null; searchEntrySeq = 0;
@@ -2879,20 +3058,15 @@ window.addEventListener("popstate", function(){
   }
   /* 置換パネルが開いていれば、戻るはまずパネルを閉じるために使う */
   if (state.screen === "editor" && replacePanelOpen){
-    toggleReplaceArea(false);
-    pushScreenEntry();
+    handleReplacePanelPop();
     return;
   }
   /* ⋮メニューが開いていれば、戻るはまずメニューを閉じるために使う。
-     メニューにも専用の履歴がないため、そのまま画面の戻る処理に渡すと
-     下の画面の履歴だけが消費されて画面と履歴がずれ、編集を抜けて
-     しまったり、次の戻るでアプリが閉じてしまったりする。
      置換パネル・検索文字のガードより後に置くことで、メニューの内側の
      要素が開いているときはそちらが先に閉じ、メニューだけが開いている
      ときにこのガードが効く */
   if (isOptionsMenuOpen()){
-    closeOptionsMenus();
-    pushScreenEntry();
+    handleOptionsMenuPop();
     return;
   }
   if (state.screen === "editor"){ handleEditorPop(); return; }
@@ -2924,15 +3098,25 @@ function renderFolderChips(folders, headers){
   box.querySelectorAll("[data-folder]").forEach(function(b){
     b.addEventListener("click", function(){
       var fid = b.getAttribute("data-folder") || null;
-      var wasFolder = !!state.currentFolderId;
-      state.currentFolderId = fid;
-      selectedMemoIds.clear(); renderList(); renderRoute();
-      /* トップ→フォルダでは専用の履歴を1件積み、フォルダ→「すべて」
-         では静かに消費する（フォルダ内で端末の戻るを押したときに
-         アプリが閉じずトップへ戻れるようにするため）。
-         フォルダ間の切り替えでは履歴はそのままにする */
-      if (fid && !wasFolder) pushFolderEntry();
-      else if (!fid && wasFolder) consumeFolderEntrySilently();
+      var apply = function(){
+        var wasFolder = !!state.currentFolderId;
+        state.currentFolderId = fid;
+        /* フォルダ切り替えで選択が解除されるときは、選択用に積んだ
+           履歴に印を付けて、あとで消費されたときに飲み込めるようにする */
+        if (selectedMemoIds.size){ staleOverlayEntry(selectionState); selectionEntrySeq = 0; selectedMemoIds.clear(); }
+        renderList(); renderRoute();
+        /* トップ→フォルダでは専用の履歴を1件積み、フォルダ→「すべて」
+           では静かに消費する（フォルダ内で端末の戻るを押したときに
+           アプリが閉じずトップへ戻れるようにするため）。
+           フォルダ間の切り替えでは履歴はそのままにする */
+        if (fid && !wasFolder) pushFolderEntry();
+        else if (!fid && wasFolder) consumeFolderEntrySilently();
+      };
+      /* チップはドロワーの中にあるため、ドロワーが開いているときは
+         ドロワー用の履歴を消費して閉じてから切り替える（ドロワーの
+         履歴がフォルダ用の履歴より上に残ると、戻るの対応がずれる） */
+      if (isDrawerOpen()) closeDrawerAndThen(apply);
+      else apply();
     });
   });
 }
@@ -3006,9 +3190,20 @@ function renderList(){
     byId("memoList").querySelectorAll("[data-select]").forEach(function(box){
       box.addEventListener("change", function(){
         var id = box.getAttribute("data-select");
+        var wasEmpty = selectedMemoIds.size === 0;
         if (box.checked){ var found = null; filtered.forEach(function(m){ if (m.id===id) found=m; });
           if (found) selectedMemoIds.set(id, found.revision || 0); }
         else selectedMemoIds.delete(id);
+        /* 選択モードに入ったとき（最初の1件にチェックしたとき）に
+           専用の履歴を1件積み、端末の戻るでまず選択だけが解除される
+           ようにする。チェックがすべて外れて選択が空になったら、
+           積んだ履歴を静かに消費する */
+        if (wasEmpty && selectedMemoIds.size){
+          pushOverlayEntry(selectionState, "selection");
+          selectionEntrySeq = ++overlayEntrySeq;
+        } else if (!selectedMemoIds.size){
+          disarmSelectionSilently();
+        }
         renderBulkToolbar(folders);
       });
     });
@@ -3267,6 +3462,22 @@ function toggleReplaceArea(force){
     var f = byId("replaceFindInput"); if (f){ try { f.focus(); } catch(e){} }
   }
 }
+/* 置換パネルを閉じる（メニュー内のボタンの再タップ）：確認中の
+   セッションがあれば先に終え、積んだ履歴を消費してから閉じる */
+function requestCloseReplacePanel(){
+  if (!replacePanelOpen) return;
+  if (replaceSession){
+    if (replaceSessionState.entryPushed){
+      consumeOverlayEntry(replaceSessionState, function(){
+        finishReplaceSession(true);
+        requestCloseOverlay(replacePanelState, function(){ toggleReplaceArea(false); });
+      });
+      return;
+    }
+    finishReplaceSession(true);
+  }
+  requestCloseOverlay(replacePanelState, function(){ toggleReplaceArea(false); });
+}
 function countLiteral(text, find){
   if (!find) return 0;
   var s = String(text == null ? "" : text), n = 0, pos = 0, idx;
@@ -3383,6 +3594,9 @@ function presentReplaceCandidate(){
 function finishReplaceSession(stopped){
   var s = replaceSession; if (!s) return;
   replaceSession = null;
+  /* ボタン操作や完了で終わるときは、積んだ履歴を静かに消費する
+     （端末の戻るで終わったときは消費済みなので何も起きない） */
+  consumeOverlayEntry(replaceSessionState, function(){});
   setReplaceSessionUI(false);
   updateReplaceCount();
   if (!s.shown && !s.replaced){ toast("見つかりませんでした"); return; }
@@ -3410,6 +3624,8 @@ function startReplaceSession(mode){
     shown: 0, replaced: 0, skipped: 0, current: null
   };
   setReplaceSessionUI(true);
+  /* 端末の戻るで確認だけをやめられるよう、専用の履歴を1件積む */
+  pushOverlayEntry(replaceSessionState, "replaceSession");
   advanceReplaceSession();
 }
 function confirmReplaceCurrent(){
@@ -3432,6 +3648,7 @@ function skipReplaceCurrent(){
 function cancelReplaceSession(){
   /* 編集画面を開き直すとき用：通知なしで確認途中状態だけを解く */
   replaceSession = null;
+  staleOverlayEntry(replaceSessionState);
   setReplaceSessionUI(false);
 }
 function doReplaceOne(){ startReplaceSession("one"); }
@@ -3541,6 +3758,8 @@ function openTodoDetail(todoId){
   byId("todoDetailNewSubtask").value = "";
   renderTodoDetailSubtasks();
   byId("todoDetailOverlay").hidden = false;
+  /* 端末の戻るでパネルだけを閉じられるよう、専用の履歴を1件積む */
+  pushOverlayEntry(todoDetailState, "todoDetail");
 }
 function closeTodoDetail(){
   byId("todoDetailOverlay").hidden = true;
@@ -3627,6 +3846,7 @@ function openEditor(memoId, isNew, resumeDraft, draftKeyOverride){
           renderTodoEditor();
           captureEditorInitialSnapshot();
           replacePanelOpen = false;
+          staleOverlayEntry(replacePanelState);
           cancelReplaceSession();
           var replaceArea = byId("editorReplaceArea"); if (replaceArea) replaceArea.hidden = true;
           var replaceMenuBtn = byId("replaceMenuButton"); if (replaceMenuBtn) replaceMenuBtn.setAttribute("aria-expanded", "false");
@@ -3634,6 +3854,7 @@ function openEditor(memoId, isNew, resumeDraft, draftKeyOverride){
           var rw = byId("replaceWithInput"); if (rw) rw.value = "";
           var rc = byId("replaceCount"); if (rc) rc.textContent = "";
           var eom = byId("editorOptionsMenu"); if (eom) eom.hidden = true;
+          staleOverlayEntry(optionsMenuState);
           byId("saveStatus").textContent = shouldRestore
             ? (!memo ? "元のメモが見つからないため、新しいメモとして復旧しました。"
               : (baseline && baseline.legacy ? "前回の未保存内容を復元しました。旧形式の下書きのため、復旧時点のメモを基準に保存します。"
@@ -4256,7 +4477,6 @@ var shareImportEntryPushed = false; /* シート用に履歴を1件積んでい�
 var shareImportAfterConsume = null; /* シート用履歴の消費後に実行する遷移 */
 var shareImportCloseSeq = 0;        /* 閉じる処理の世代（フォールバック判定用） */
 var shareImportClosing = false;     /* 履歴消費による閉じ処理が進行中か */
-var shareImportSkipAutoPaste = false; /* キャンセル直後の1回だけ自動読み取りを止める */
 function isShareImportOpen(){ var o = byId("shareImportOverlay"); return !!(o && !o.hidden); }
 function hideShareImport(){ var o = byId("shareImportOverlay"); if (o) o.hidden = true; }
 function keepShareImportInput(){
@@ -4292,14 +4512,9 @@ function requestCloseShareImport(){
     hideShareImport();
   }, 450);
 }
-/* 「キャンセル」：入力を破棄して閉じる（保持しない）。
-   入力があった状態で破棄したときは、次に開いたときのクリップボード
-   自動読み取りを1回だけ止め、破棄した文章が開き直した途端に自動で
-   戻ってこないようにする（「クリップボードから貼り付け」ボタンを
-   押せば、従来どおりその場で入れ直せる） */
+/* 「キャンセル」：入力を破棄して閉じる（保持しない） */
 function cancelShareImport(){
   var t = byId("shareImportTitleInput"), b = byId("shareImportText");
-  if ((t && t.value) || (b && b.value)) shareImportSkipAutoPaste = true;
   shareImportKept = null;
   if (t) t.value = "";
   if (b) b.value = "";
@@ -4340,16 +4555,14 @@ function openShareImport(){
   /* 端末の戻るでシートだけを閉じられるよう、シート用に履歴を1件積む */
   try { history.pushState({myMemo:true, screen:state.screen, overlay:"shareImport"}, ""); shareImportEntryPushed = true; }
   catch(e){ shareImportEntryPushed = false; }
-  /* 権限が既にある環境では、開いたついでに自動で読み取って入れる。
-     失敗してもエラーは出さず、貼り付け欄での操作に任せる */
-  tryPasteFromClipboard(true);
+  /* クリップボードは自動では読み込まない。前にコピーした文章が意図せず
+     入ってしまうため、「クリップボードから貼り付け」ボタンを押した
+     ときだけ読み込む（共有から送られてきた文章の事前入力は、呼び出し
+     側が欄へ直接入れるので影響しない） */
 }
 function tryPasteFromClipboard(silent){
   var status = byId("shareImportStatus");
   var area = byId("shareImportText");
-  /* キャンセルで破棄した直後の自動読み取りは1回だけ止める
-     （明示的なボタンからの貼り付けは止めない） */
-  if (silent && shareImportSkipAutoPaste){ shareImportSkipAutoPaste = false; return; }
   if (!navigator.clipboard || !navigator.clipboard.readText){
     if (!silent && status) status.textContent = "この環境では自動で読み取れませんでした。本文の欄を長押しして「貼り付け」を選んでください。";
     if (area) { try { area.focus(); } catch(e){} }
@@ -4880,22 +5093,24 @@ function bindEvents(){
   byId("previewTodoSection").addEventListener("dblclick", function(e){ e.stopPropagation(); });
   byId("previewOptionsButton").addEventListener("click", function(e){
     e.stopPropagation();
-    var m = byId("previewOptionsMenu"); m.hidden = !m.hidden;
+    if (isOptionsMenuOpen()) requestCloseOptionsMenu();
+    else openOptionsMenu("previewOptionsMenu");
   });
   byId("editorOptionsButton").addEventListener("click", function(e){
     e.stopPropagation();
-    var m = byId("editorOptionsMenu"); m.hidden = !m.hidden;
+    if (isOptionsMenuOpen()) requestCloseOptionsMenu();
+    else openOptionsMenu("editorOptionsMenu");
   });
   document.addEventListener("click", function(e){
-    ["previewOptionsMenu","editorOptionsMenu"].forEach(function(id){
-      var m = byId(id);
-      if (m && !m.hidden && !(e.target.closest && e.target.closest("#" + id))) m.hidden = true;
-    });
+    if (!isOptionsMenuOpen()) return;
+    var inside = e.target.closest && (e.target.closest("#previewOptionsMenu") || e.target.closest("#editorOptionsMenu"));
+    if (!inside) requestCloseOptionsMenu();
   });
   byId("previewInfoButton").addEventListener("click", function(){
-    byId("previewOptionsMenu").hidden = true;
-    var memo = previewMemoCache; if (!memo) return;
-    infoModal("作成日時：" + fmtDate(memo.createdAt) + "\n最終更新日時：" + fmtDate(memo.updatedAt) + "\n文字数：" + String(memo.content || "").length);
+    closeOptionsMenuAndThen(function(){
+      var memo = previewMemoCache; if (!memo) return;
+      infoModal("作成日時：" + fmtDate(memo.createdAt) + "\n最終更新日時：" + fmtDate(memo.updatedAt) + "\n文字数：" + String(memo.content || "").length);
+    });
   });
   byId("previewSearchClear").addEventListener("click", function(){
     state.previewFilter = "";
@@ -4909,7 +5124,12 @@ function bindEvents(){
   /* 検索と置換（編集の⋮メニューの中で開閉する。メニューは閉じない） */
   byId("replaceMenuButton").addEventListener("click", function(e){
     e.stopPropagation();
-    toggleReplaceArea();
+    if (replacePanelOpen) requestCloseReplacePanel();
+    else {
+      toggleReplaceArea(true);
+      /* 端末の戻るでパネルだけを閉じられるよう、専用の履歴を1件積む */
+      pushOverlayEntry(replacePanelState, "replacePanel");
+    }
   });
   byId("replaceOneButton").addEventListener("click", function(){ doReplaceOne(); });
   byId("replaceAllButton").addEventListener("click", function(){ doReplaceAll(); });
@@ -4925,8 +5145,8 @@ function bindEvents(){
   byId("titleInput").addEventListener("input", function(){ if (replacePanelOpen) updateReplaceCount(); });
   byId("contentInput").addEventListener("input", function(){ if (replacePanelOpen) updateReplaceCount(); });
   /* ToDo詳細パネル */
-  byId("todoDetailClose").addEventListener("click", closeTodoDetail);
-  byId("todoDetailOverlay").addEventListener("click", function(e){ if (e.target === byId("todoDetailOverlay")) closeTodoDetail(); });
+  byId("todoDetailClose").addEventListener("click", requestCloseTodoDetail);
+  byId("todoDetailOverlay").addEventListener("click", function(e){ if (e.target === byId("todoDetailOverlay")) requestCloseTodoDetail(); });
   byId("todoDetailTitle").addEventListener("change", function(){
     if (!todoDetailId) return;
     var v = byId("todoDetailTitle").value;
@@ -4946,7 +5166,7 @@ function bindEvents(){
     if (!todoDetailId) return;
     var id = todoDetailId;
     applyTodoChange(function(){ editorTodoItems = removeTodoItem(editorTodoItems, id); });
-    closeTodoDetail();
+    requestCloseTodoDetail();
   });
   byId("todoDetailAddSubtask").addEventListener("click", function(){
     if (!todoDetailId) return;
@@ -4956,14 +5176,10 @@ function bindEvents(){
   });
   byId("todoDetailNewSubtask").addEventListener("keydown", function(ev){ if (ev.key === "Enter"){ ev.preventDefault(); byId("todoDetailAddSubtask").click(); } });
   byId("folderButton").addEventListener("click", function(){ closeFabMenuAndThen(function(){ openDrawer(); }); });
-  byId("drawerOverlay").addEventListener("click", closeDrawer);
-  byId("drawerFolderManage").addEventListener("click", function(){ closeDrawer(); navigate("folders"); renderFolders(); });
-  ["exportBackupButton","exportRecoveryButton","importBackupButton","exportStandaloneButton"].forEach(function(id){
-    byId(id).addEventListener("click", closeDrawer);
-  });
-  byId("folderSummary").addEventListener("click", function(e){
-    if (e.target && e.target.closest && e.target.closest("[data-folder]")) closeDrawer();
-  });
+  byId("drawerOverlay").addEventListener("click", requestCloseDrawer);
+  byId("drawerFolderManage").addEventListener("click", function(){ closeDrawerAndThen(function(){ navigate("folders"); renderFolders(); }); });
+  /* フォルダチップ（folderSummary の中）からのドロワー閉じは、
+     チップ側のハンドラが closeDrawerAndThen で行う */
   byId("newMemoButton").addEventListener("click", function(){
     closeFabMenuAndThen(function(){ pendingNewMemoType = "text"; openEditor(null, true); });
   });
@@ -5029,14 +5245,17 @@ function bindEvents(){
         folders.map(function(f){ return '<option value="' + esc(f.id) + '">' + esc(f.name) + '</option>'; }).join("");
       sel.value = byId("bulkFolderSelect").value || "";
       byId("moveDialog").hidden = false;
+      /* 端末の戻るでダイアログだけを閉じられるよう、専用の履歴を1件積む */
+      pushOverlayEntry(moveDialogState, "moveDialog");
     }).catch(function(e){ console.error(e); infoModal("フォルダ一覧を読み込めませんでした。"); });
   });
-  byId("moveDialogCancel").addEventListener("click", function(){ byId("moveDialog").hidden = true; });
-  byId("moveDialog").addEventListener("click", function(e){ if (e.target === byId("moveDialog")) byId("moveDialog").hidden = true; });
+  byId("moveDialogCancel").addEventListener("click", function(){ requestCloseMoveDialog(); });
+  byId("moveDialog").addEventListener("click", function(e){ if (e.target === byId("moveDialog")) requestCloseMoveDialog(); });
   byId("moveDialogOk").addEventListener("click", function(){
     byId("bulkFolderSelect").value = byId("moveDialogSelect").value || "";
-    byId("moveDialog").hidden = true;
-    byId("bulkMoveButton").click();
+    hideMoveDialog();
+    /* ダイアログ用に積んだ履歴を消費してから、一括移動を実行する */
+    consumeOverlayEntry(moveDialogState, function(){ byId("bulkMoveButton").click(); });
   });
   /* ドラッグハンドル：タップでメモ内検索を開閉、下へ引くと開く／上へ押すと閉じる（v11.4の挙動） */
   var dragHandle = byId("previewDragHandle");
@@ -5081,11 +5300,17 @@ function bindEvents(){
   byId("newTodoInput").addEventListener("keydown", function(ev){ if (ev.key === "Enter"){ ev.preventDefault(); byId("addTodoButton").click(); } });
   byId("saveButton").addEventListener("click", function(){ saveEditor(); });
   byId("discardButton").addEventListener("click", function(){
-    if (!isEditorDirty()){ discardEditor(); return; }
-    confirmModal("編集中の変更を破棄して戻りますか？この編集用の一時保存だけを消します（復元元に選んだ下書きは残ります）。", "破棄する")
-      .then(function(ok){ if (ok) discardEditor(); });
+    /* メニュー用に積んだ履歴を消費して閉じてから、破棄の処理に進む
+       （履歴が残っていると、破棄で戻るときにメニュー側へ吸われてしまう） */
+    closeOptionsMenuAndThen(function(){
+      if (!isEditorDirty()){ discardEditor(); return; }
+      confirmModal("編集中の変更を破棄して戻りますか？この編集用の一時保存だけを消します（復元元に選んだ下書きは残ります）。", "破棄する")
+        .then(function(ok){ if (ok) discardEditor(); });
+    });
   });
-  byId("editButton").addEventListener("click", function(){ openEditor(state.currentMemoId, false); });
+  byId("editButton").addEventListener("click", function(){
+    closeOptionsMenuAndThen(function(){ openEditor(state.currentMemoId, false); });
+  });
   byId("previewMoveButton").addEventListener("click", function(){
     var memoId = state.currentMemoId; if (!memoId) return;
     var target = byId("previewFolderSelect").value || null;
@@ -5105,21 +5330,24 @@ function bindEvents(){
     }).then(function(){ btn.disabled = false; });
   });
   byId("duplicateButton").addEventListener("click", function(){
-    byId("previewOptionsMenu").hidden = true;
-    memoRepo.duplicate(state.currentMemoId).then(function(copy){
-      if (!copy) throw new Error("複製元のメモが見つからないか、削除されています。");
-      dataChanged(); state.currentMemoId = copy.id;
-      return loadPreview(copy.id).then(function(){ return renderList(); });
-    }).then(function(){ toast("複製しました"); })
-    .catch(function(e){ console.error(e); return infoModal(e.message || "メモを複製できませんでした。"); });
+    closeOptionsMenuAndThen(function(){
+      memoRepo.duplicate(state.currentMemoId).then(function(copy){
+        if (!copy) throw new Error("複製元のメモが見つからないか、削除されています。");
+        dataChanged(); state.currentMemoId = copy.id;
+        return loadPreview(copy.id).then(function(){ return renderList(); });
+      }).then(function(){ toast("複製しました"); })
+      .catch(function(e){ console.error(e); return infoModal(e.message || "メモを複製できませんでした。"); });
+    });
   });
   byId("deleteButton").addEventListener("click", function(){
-    confirmModal("このメモを削除しますか？", "削除する").then(function(ok){
-      if (!ok) return;
-      memoRepo.remove(state.currentMemoId).then(function(){
-        dataChanged();
-        return performBack();
-      }).catch(function(e){ console.error(e); return infoModal(e.message || "削除できませんでした。"); });
+    closeOptionsMenuAndThen(function(){
+      confirmModal("このメモを削除しますか？", "削除する").then(function(ok){
+        if (!ok) return;
+        memoRepo.remove(state.currentMemoId).then(function(){
+          dataChanged();
+          return performBack();
+        }).catch(function(e){ console.error(e); return infoModal(e.message || "削除できませんでした。"); });
+      });
     });
   });
   byId("bulkMoveButton").addEventListener("click", function(){
@@ -5128,9 +5356,9 @@ function bindEvents(){
     var expected = {}; selectedMemoIds.forEach(function(v,k){ expected[k]=v; });
     var target = byId("bulkFolderSelect").value || null;
     batchUpdateMemos(ids, expected, target, function(m, stamp){ m.folderId = target; m.updatedAt = stamp; m.revision = (m.revision||0)+1; })
-      .then(function(){ dataChanged(); selectedMemoIds.clear(); return renderList(); })
+      .then(function(){ dataChanged(); selectedMemoIds.clear(); disarmSelectionSilently(); return renderList(); })
       .then(function(){ toast("移動しました"); })
-      .catch(function(e){ selectedMemoIds.clear(); return renderList().then(function(){ return infoModal(e.message || "選択したメモを移動できませんでした。一覧を更新しました。もう一度選択してください。"); }); });
+      .catch(function(e){ selectedMemoIds.clear(); disarmSelectionSilently(); return renderList().then(function(){ return infoModal(e.message || "選択したメモを移動できませんでした。一覧を更新しました。もう一度選択してください。"); }); });
   });
   byId("bulkDeleteButton").addEventListener("click", function(){
     if (!selectedMemoIds.size) return;
@@ -5145,11 +5373,11 @@ function bindEvents(){
           ids.forEach(function(id){ map[id] = stamp; });
           return addSyncTombstones("memo", map);
         })
-        .then(function(){ dataChanged(); selectedMemoIds.clear(); return renderList(); })
-        .catch(function(e){ selectedMemoIds.clear(); return renderList().then(function(){ return infoModal(e.message || "選択したメモを削除できませんでした。一覧を更新しました。もう一度選択してください。"); }); });
+        .then(function(){ dataChanged(); selectedMemoIds.clear(); disarmSelectionSilently(); return renderList(); })
+        .catch(function(e){ selectedMemoIds.clear(); disarmSelectionSilently(); return renderList().then(function(){ return infoModal(e.message || "選択したメモを削除できませんでした。一覧を更新しました。もう一度選択してください。"); }); });
     });
   });
-  byId("clearSelectionButton").addEventListener("click", function(){ selectedMemoIds.clear(); renderList(); });
+  byId("clearSelectionButton").addEventListener("click", function(){ selectedMemoIds.clear(); disarmSelectionSilently(); renderList(); });
   byId("addHeaderButton").addEventListener("click", function(){
     var name = byId("newHeaderInput").value.trim(); if (!name) return;
     headerRepo.create(name).then(function(){
@@ -5190,30 +5418,34 @@ function bindEvents(){
   });
   byId("syncNowButton").addEventListener("click", function(){ syncNow(true); });
   byId("exportBackupButton").addEventListener("click", function(){
-    createBackup().then(function(backup){
-      openExportSheet(backup, "my-memo-backup-" + new Date().toISOString().slice(0,10) + ".json", "バックアップを保存する");
-    }).catch(function(e){ console.error(e); return infoModal(e.message || "バックアップを作成できませんでした。"); });
+    closeDrawerAndThen(function(){
+      createBackup().then(function(backup){
+        openExportSheet(backup, "my-memo-backup-" + new Date().toISOString().slice(0,10) + ".json", "バックアップを保存する");
+      }).catch(function(e){ console.error(e); return infoModal(e.message || "バックアップを作成できませんでした。"); });
+    });
   });
   byId("exportRecoveryButton").addEventListener("click", function(){
-    confirmModal("復旧用データには、メモ本文・編集途中の内容・未同期データ・設定がすべて含まれます。データは外部へ送信されませんが、保存したファイルは第三者へ渡す場合に内容へ注意してください。書き出しますか？", "書き出す")
-    .then(function(ok){
-      if (!ok) return;
-      return createRecoveryPackage().then(function(pkg){
-        openExportSheet(pkg, "my-memo-recovery-" + new Date().toISOString().slice(0,10) + ".json", "復旧用データを保存する");
-        toast("確認事項 " + pkg.integrity.issueCount + "件");
-      });
-    }).catch(function(e){ console.error(e); return infoModal(e.message || "復旧用データを書き出せませんでした。"); });
+    closeDrawerAndThen(function(){
+      confirmModal("復旧用データには、メモ本文・編集途中の内容・未同期データ・設定がすべて含まれます。データは外部へ送信されませんが、保存したファイルは第三者へ渡す場合に内容へ注意してください。書き出しますか？", "書き出す")
+      .then(function(ok){
+        if (!ok) return;
+        return createRecoveryPackage().then(function(pkg){
+          openExportSheet(pkg, "my-memo-recovery-" + new Date().toISOString().slice(0,10) + ".json", "復旧用データを保存する");
+          toast("確認事項 " + pkg.integrity.issueCount + "件");
+        });
+      }).catch(function(e){ console.error(e); return infoModal(e.message || "復旧用データを書き出せませんでした。"); });
+    });
   });
   byId("exportSheetCopyButton").addEventListener("click", copyExportSheetText);
   byId("exportSheetClose").addEventListener("click", requestCloseExportSheet);
   byId("exportSheetOverlay").addEventListener("click", function(e){ if (e.target === this) requestCloseExportSheet(); });
-  byId("exportStandaloneButton").addEventListener("click", openStandaloneSheet);
+  byId("exportStandaloneButton").addEventListener("click", function(){ closeDrawerAndThen(function(){ openStandaloneSheet(); }); });
   byId("standaloneSheetDownloadButton").addEventListener("click", downloadStandaloneHTML);
   byId("standaloneSheetCopyButton").addEventListener("click", copyStandaloneHTML);
   byId("standaloneSheetShareButton").addEventListener("click", shareStandaloneHTML);
   byId("standaloneSheetClose").addEventListener("click", requestCloseStandaloneSheet);
   byId("standaloneSheetOverlay").addEventListener("click", function(e){ if (e.target === this) requestCloseStandaloneSheet(); });
-  byId("importBackupPasteButton").addEventListener("click", openPasteRestore);
+  byId("importBackupPasteButton").addEventListener("click", function(){ closeDrawerAndThen(function(){ openPasteRestore(); }); });
   byId("pasteRestoreCancel").addEventListener("click", requestClosePasteRestore);
   byId("pasteRestoreOverlay").addEventListener("click", function(e){ if (e.target === this) requestClosePasteRestore(); });
   byId("pasteRestoreRunButton").addEventListener("click", function(){
@@ -5268,7 +5500,9 @@ function bindEvents(){
     });
   }
   var fileInput = byId("backupFileInput");
-  byId("importBackupButton").addEventListener("click", function(){ fileInput.click(); });
+  /* ファイル選択は利用者のタップの中で開く必要があるため、ドロワーを
+     閉じる履歴消費を開始してから、そのままファイル選択を開く */
+  byId("importBackupButton").addEventListener("click", function(){ requestCloseDrawer(); fileInput.click(); });
   fileInput.addEventListener("change", function(){
     var file = fileInput.files && fileInput.files[0]; if (!file) return;
     file.text().then(function(text){
