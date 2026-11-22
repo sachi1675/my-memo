@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px; --header-height: 0px; --bottom-padding: 24px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
+<html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
@@ -138,12 +138,12 @@
     cursor:pointer;background-color:#f8f9fa;border-bottom:1px solid #e0e0e0;touch-action:none;flex-shrink:0}
   .drag-handle{width:40px;height:5px;background-color:#ccc;border-radius:3px}
   .drag-handle-container:active .drag-handle{background-color:#888}
-  .preview-area{padding:18px;font-size:16px;line-height:1.6;overflow-y:auto;flex:1;
+  .preview-area{padding:15px;font-size:15px;line-height:1.65;overflow-y:auto;flex:1;
     word-wrap:break-word;overflow-wrap:break-word;-webkit-user-select:text;user-select:text}
   .preview-title{font-size:18px;font-weight:bold;margin-bottom:20px;border-left:4px solid #3a4d5c;
-    padding:4px 0 4px 12px;color:#111;line-height:1.3;overflow-wrap:anywhere}
+    padding:4px 0 4px 12px;color:#111;line-height:1.4;overflow-wrap:anywhere}
   .preview-title:empty{display:none}
-  .memo-content{font-size:15px;line-height:1.7;color:#333;white-space:pre-wrap;overflow-wrap:anywhere}
+  .memo-content{font-size:15px;line-height:1.65;color:#333;white-space:pre-wrap;overflow-wrap:anywhere}
   .preview-area mark{background:#ffd54f;color:#000;border-radius:2px;padding:0 2px}
   .preview-todo{margin-top:20px;border-top:1px solid #eee;padding-top:6px}
   .preview-todo-item{padding:6px 0;border-bottom:1px solid #f0f0f0;overflow-wrap:anywhere;font-size:15px}
@@ -184,9 +184,9 @@
     border-bottom:1px solid #eee;display:flex;justify-content:flex-end;gap:15px;flex-shrink:0}
   .edit-area{display:flex;flex-direction:column;flex:1;min-height:0}
   .editor-title{width:100%;padding:15px 15px 5px;border:none;font-size:18px;font-weight:bold;
-    outline:none;border-bottom:1px solid #eee;flex-shrink:0;background:#fff;border-radius:0}
-  .editor-body{flex:1;width:100%;padding:15px;border:none;resize:none;font-size:16px;outline:none;
-    line-height:1.5;background:#fff;border-radius:0;min-height:0}
+    outline:none;border-bottom:1px solid #eee;flex-shrink:0;background:#fff;border-radius:0;line-height:1.4}
+  .editor-body{flex:1;width:100%;padding:15px;border:none;resize:none;font-size:15px;outline:none;
+    line-height:1.65;background:#fff;border-radius:0;min-height:0}
   .todo-edit-container{flex-shrink:0;padding:2px 15px 12px;background:#fff;display:flex;flex-direction:column}
   /* テキストメモではToDo入力欄自体を出さない（作成時に＋でテキスト／ToDoを選ぶため） */
   #editorScreen:not(.is-todo) .todo-edit-container{display:none}
@@ -196,7 +196,7 @@
   .todo-add-row input{flex:1;padding:10px;border:1px solid #ccc;border-radius:6px;min-width:0;background:#fff}
   .todo-add-row button{padding:10px 15px;border:none;background:#3a4d5c;color:#fff;border-radius:6px;flex-shrink:0}
   .todo-editor-list{display:flex;flex-direction:column;max-height:36vh;overflow-y:auto}
-  .todo-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0}
+  .todo-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:15px}
   .todo-row input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;cursor:pointer}
   .todo-row-text{flex:1;cursor:pointer;min-width:0;overflow-wrap:anywhere}
   .todo-row.is-completed .todo-row-text{text-decoration:line-through;color:#999}
@@ -1205,7 +1205,7 @@
     <div class="edit-area">
       <input id="titleInput" class="editor-title" maxlength="200" placeholder="タイトルを入力..." aria-label="タイトル">
       <textarea id="contentInput" class="editor-body" placeholder="ここにメモを入力..." aria-label="本文"></textarea>
-      <div id="todoEditContainer" class="todo-edit-container" style="display: none;">
+      <div id="todoEditContainer" class="todo-edit-container">
         <div id="todoEditorList" class="todo-editor-list"></div>
         <p id="todoEditorNotice" class="todo-notice" role="status" aria-live="polite" hidden=""></p>
         <div class="todo-add-row">
@@ -1214,7 +1214,7 @@
         </div>
       </div>
     </div>
-    <p id="saveStatus" hidden="" aria-live="polite">入力内容は自動保存されます（下書き）。「保存」でメモとして確定します。</p>
+    <p id="saveStatus" hidden="" aria-live="polite"></p>
   </section>
 
   <!-- フォルダ管理（v11.4の全画面モーダル：構成の編集＋タブ） -->
@@ -3789,6 +3789,61 @@ function applyTodoChange(change){
   try { change(); renderTodoEditor(); scheduleDraft(); }
   catch(e){ var n = byId("todoEditorNotice"); if (n){ n.textContent = e.message || "ToDoを更新できませんでした。"; n.hidden = false; } }
 }
+/* プレビューをダブルタップして編集へ移るとき、ダブルタップした位置に
+   対応する文字位置へカーソルを合わせるための受け渡し。
+   { field: "title" | "content", offset: 先頭からの文字数 } を保持し、
+   openEditor が値を流し込んだあとに一度だけ適用する。 */
+var pendingEditorCaret = null;
+function caretFromPreviewPoint(e){
+  try {
+    var titleEl = byId("previewTitle"), contentEl = byId("previewContent");
+    var root = null, field = null;
+    if (titleEl && e.target && titleEl.contains(e.target)){ root = titleEl; field = "title"; }
+    else if (contentEl && e.target && contentEl.contains(e.target)){ root = contentEl; field = "content"; }
+    else return null;
+    var memo = previewMemoCache; if (!memo) return null;
+    var raw = field === "title" ? (memo.title || "") : (memo.content || "");
+    /* タイトルが空のときプレビューには「タイトルなし」と出すだけなので、
+       実データが無い場合は先頭に置く */
+    if (!raw) return { field: field, offset: 0 };
+    var node = null, off = 0;
+    if (document.caretRangeFromPoint){
+      var r = document.caretRangeFromPoint(e.clientX, e.clientY);
+      if (r){ node = r.startContainer; off = r.startOffset; }
+    } else if (document.caretPositionFromPoint){
+      var p = document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (p){ node = p.offsetNode; off = p.offset; }
+    }
+    if (!node || !root.contains(node)) return { field: field, offset: raw.length };
+    /* 検索ハイライトの <mark> が混ざっていても、テキストだけを数えれば
+       元の文字列での位置と一致する */
+    var range = document.createRange();
+    range.setStart(root, 0);
+    range.setEnd(node, off);
+    var offset = range.toString().length;
+    if (offset > raw.length) offset = raw.length;
+    return { field: field, offset: offset };
+  } catch (err){ return null; }
+}
+function applyPendingEditorCaret(){
+  var pending = pendingEditorCaret; pendingEditorCaret = null;
+  if (!pending) return;
+  var el = pending.field === "title" ? byId("titleInput") : byId("contentInput");
+  if (!el || el.style.display === "none") return;
+  try {
+    var pos = Math.max(0, Math.min(pending.offset, el.value.length));
+    el.focus();
+    if (el.setSelectionRange) el.setSelectionRange(pos, pos);
+    if (pending.field === "content"){
+      /* カーソル行が画面内に見えるよう、改行数×行高で大まかにスクロールする
+         （自動折り返し分は含まない近似） */
+      var lh = parseFloat(window.getComputedStyle(el).lineHeight) || 24;
+      var lines = el.value.slice(0, pos).split("\n").length - 1;
+      var top = lines * lh - el.clientHeight / 2;
+      if (top > 0) el.scrollTop = top;
+    }
+  } catch (err){}
+}
 function openEditor(memoId, isNew, resumeDraft, draftKeyOverride){
   if (editorOpening || editorOperationInProgress) return Promise.resolve();
   editorOpening = true; state.editorBusy = true;
@@ -3861,11 +3916,13 @@ function openEditor(memoId, isNew, resumeDraft, draftKeyOverride){
                 : "前回の未保存内容を復元しました。"))
             : "入力内容は自動保存されます（下書き）。「保存」でメモとして確定します。";
           navigate("editor");
+          applyPendingEditorCaret();
         });
       });
     });
   }).catch(function(e){
     console.error(e);
+    pendingEditorCaret = null;
     return infoModal(e.message || "編集画面を開けませんでした。");
   }).then(function(){
     editorOpening = false; state.editorBusy = false;
@@ -5088,7 +5145,12 @@ function bindEvents(){
   byId("previewBackButton").addEventListener("click", goBack);
   byId("editorBackButton").addEventListener("click", goBack);
   byId("foldersCloseButton").addEventListener("click", goBack);
-  byId("previewArea").addEventListener("dblclick", function(){ if (state.currentMemoId) openEditor(state.currentMemoId, false); });
+  byId("previewArea").addEventListener("dblclick", function(e){
+    if (!state.currentMemoId) return;
+    /* ダブルタップした文字位置を覚えておき、編集画面でカーソルを合わせる */
+    pendingEditorCaret = caretFromPreviewPoint(e);
+    openEditor(state.currentMemoId, false);
+  });
   /* ToDoのチェックを連打しても編集画面が開かないようにする */
   byId("previewTodoSection").addEventListener("dblclick", function(e){ e.stopPropagation(); });
   byId("previewOptionsButton").addEventListener("click", function(e){
@@ -5309,6 +5371,7 @@ function bindEvents(){
     });
   });
   byId("editButton").addEventListener("click", function(){
+    pendingEditorCaret = null;
     closeOptionsMenuAndThen(function(){ openEditor(state.currentMemoId, false); });
   });
   byId("previewMoveButton").addEventListener("click", function(){
