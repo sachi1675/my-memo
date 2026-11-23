@@ -2410,8 +2410,9 @@ function restoreCtx(ctx){
   if (ctx.screen==="preview" && ctx.currentMemoId) state.currentMemoId = ctx.currentMemoId;
 }
 /* ---------- 再読み込み時の画面復元 ----------
-   プレビュー・編集を開いたまま再読み込み（更新）すると、起動処理が
-   常に一覧から始めるためトップへ戻ってしまっていた。現在の画面を
+   プレビュー・編集を開いたまま、あるいはフォルダの一覧を表示した
+   まま再読み込み（更新）すると、起動処理が常に一覧から始めるため
+   トップへ戻ってしまっていた。現在の画面（フォルダ表示を含む）を
    settings に控えておき、起動時に同じ画面へ戻す。控えは端末内だけ
    （同期・バックアップには含まれない）。編集は自動保存されている
    下書きから復元する。 */
@@ -2430,6 +2431,11 @@ function saveResumeState(){
     rec = { screen:"editor", memoId: state.currentMemoId || null,
       draftKey: resumeDraftKey || activeDraftSourceId || editorDraftId || null,
       folderId: state.currentFolderId || null };
+  } else if (state.screen === "list" && state.currentFolderId){
+    /* フォルダの一覧を表示したまま再読み込みしたときも、そのフォルダ
+       表示に戻れるよう、フォルダIDを控える（以前はプレビュー・編集
+       だけが対象で、フォルダ一覧は控えが残らずトップに戻っていた） */
+    rec = { screen:"list", folderId: state.currentFolderId };
   }
   putSettingValue(RESUME_KEY, rec).catch(function(){});
 }
@@ -2481,7 +2487,12 @@ function armRestoredEntryRearm(){
     document.removeEventListener("pointerdown", rearm, true);
     document.removeEventListener("touchstart", rearm, true);
     document.removeEventListener("keydown", rearm, true);
-    try { history.replaceState({myMemo:true, screen:state.screen}, ""); } catch(e){}
+    /* フォルダ一覧の復元では、現在のエントリがフォルダ用のエントリで
+       ある目印（overlay:"folder"）を残しておく。目印を消してしまうと、
+       次の再読み込みでフォルダ用履歴を引き継げなくなるため */
+    var rearmState = {myMemo:true, screen:state.screen};
+    if (state.screen === "list" && state.currentFolderId) rearmState.overlay = "folder";
+    try { history.replaceState(rearmState, ""); } catch(e){}
   }
   document.addEventListener("pointerdown", rearm, true);
   document.addEventListener("touchstart", rearm, true);
@@ -2505,8 +2516,28 @@ function restoreLastView(){
   var bootEntryState = null;
   try { bootEntryState = history.state; } catch(e){}
   if (bootEntryState && bootEntryState.myMemo && bootEntryState.screen === rec.screen &&
-      (rec.screen === "preview" || rec.screen === "editor")){
+      (rec.screen === "preview" || rec.screen === "editor" ||
+       (rec.screen === "list" && bootEntryState.overlay === "folder"))){
     restoreAdoptMode = true;
+  }
+  if (rec.screen === "list"){
+    /* フォルダの一覧を表示したまま再読み込みしたときの復元。
+       フォルダ用履歴は、フォルダを選んだタップで既に積まれていて
+       再読み込み後も今いるエントリとして残っているので、プレビュー・
+       編集と同じく引き継ぐ（上の判定で restoreAdoptMode が立って
+       いれば、applyResumeFolder→pushFolderEntry は新しいエントリを
+       積まず「積んである」ことだけを記録する）。引き継げるエントリが
+       無い起動では従来どおりフォルダ用履歴を1件積み、最初に画面へ
+       触れた時点で刻み直す（done() が armRestoredEntryRearm を呼ぶ） */
+    if (!rec.folderId){ done(); return Promise.resolve(); }
+    return resolveResumeFolderId(rec.folderId).then(function(fid){
+      if (!fid) return;
+      applyResumeFolder(fid);
+      state.screen = "list";
+      restoredScreen = true;
+      renderRoute();
+      return renderList().catch(function(e){ console.error(e); });
+    }).catch(function(e){ console.error(e); }).then(done);
   }
   if (rec.screen === "preview" && rec.memoId){
     return memoRepo.get(rec.memoId).then(function(memo){
