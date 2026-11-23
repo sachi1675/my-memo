@@ -2459,6 +2459,19 @@ function applyResumeFolder(folderId){
    あった）時点で、現在の履歴をその場で刻み直して操作ありの履歴に
    変えておく。刻み直しは今いる画面の履歴だけに行い、画面遷移や
    アプリ内スタックには触れない */
+/* 起動時の復元で「既存エントリの引き継ぎ」を行う間は true になる。
+   再読み込みでプレビュー／編集を復元する場合、今いるブラウザ履歴の
+   エントリは、再読み込み前に利用者がタップして作ったその画面自身の
+   エントリであり、history.state に画面の目印が入っている。そのときは
+   新しいエントリを積み直さず、今いるエントリ（と、その下に利用者の
+   操作で積まれているフォルダ用エントリ）をそのままその画面の
+   エントリとして引き継ぐ。操作なしで積んだエントリは実機ブラウザの
+   戻る操作で飛ばされることがあるが、引き継いだ履歴は利用者自身が
+   作ったエントリだけでできているため、画面に触れなくても最初の
+   戻るで通常の遷移とまったく同じに前の画面へ戻れる。
+   引き継げるエントリが無い起動（新規に開き直した場合など）では
+   従来どおりエントリを積んで復元する */
+var restoreAdoptMode = false;
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
   if (restoredEntryRearmArmed) return;
@@ -2478,12 +2491,23 @@ function restoreLastView(){
   var rec = pendingResume; pendingResume = null;
   var restoredScreen = false; /* プレビュー／編集を実際に開いたか */
   function done(){
+    restoreAdoptMode = false;
     resumeReady = true; saveResumeState();
     /* 復元で画面を開いた場合は、その履歴を操作ありに変える仕掛けを
        armed にしておく（上の armRestoredEntryRearm のコメント参照） */
     if (restoredScreen) armRestoredEntryRearm();
   }
   if (!rec || typeof rec !== "object"){ done(); return Promise.resolve(); }
+  /* 今いるエントリが、復元しようとする画面自身のエントリ（再読み込み
+     前に利用者のタップで作られたもの）なら、それを引き継ぐ形で復元
+     する（restoreAdoptMode のコメント参照）。目印が無い・画面が違う
+     場合は従来どおりエントリを積んで復元する */
+  var bootEntryState = null;
+  try { bootEntryState = history.state; } catch(e){}
+  if (bootEntryState && bootEntryState.myMemo && bootEntryState.screen === rec.screen &&
+      (rec.screen === "preview" || rec.screen === "editor")){
+    restoreAdoptMode = true;
+  }
   if (rec.screen === "preview" && rec.memoId){
     return memoRepo.get(rec.memoId).then(function(memo){
       if (!memo || memo.deletedAt) return;
@@ -2492,11 +2516,12 @@ function restoreLastView(){
          トップからの開き直しになる） */
       return resolveResumeFolderId(rec.folderId).then(function(fid){
         applyResumeFolder(fid);
-        /* 編集の復元と同じく、下の一覧分のアプリ内スタックとブラウザ
-           履歴を明示的に積んでからプレビューを開く。汎用の openPreview
-           （navigate 経由）に任せずここで積むことで、復元時の積み方が
-           編集側とそろい、戻る操作でプレビュー→（フォルダ内）一覧→
-           トップと辿れる */
+        /* 編集の復元と同じく、下の一覧分のアプリ内スタックをここで
+           積んでからプレビューを開く。ブラウザ履歴側は、引き継ぎが
+           できる起動（再読み込み）では pushScreenEntry が何もせず、
+           今いるエントリがそのままプレビューのエントリになる。
+           引き継げない起動では従来どおり1件積む。どちらの場合も、
+           戻る操作でプレビュー→（フォルダ内）一覧→トップと辿れる */
         state.history.push(captureCtx());
         state.screen = "preview";
         state.currentMemoId = memo.id;
@@ -2538,8 +2563,11 @@ function restoreLastView(){
           /* 通常の流れ（トップ→プレビュー→編集）と同じ積みにしておく。
              復元では編集を直接開くため、そのままだと編集の下はトップに
              なり、戻る操作でプレビューへ戻れずトップへ戻ってしまう。
-             プレビュー分のアプリ内スタックとブラウザ履歴を先に積んで
-             から編集を開くことで、戻るでプレビューへ戻れるようにする。
+             プレビュー分のアプリ内スタックを先に積んでから編集を開く
+             ことで、戻るでプレビューへ戻れるようにする。ブラウザ履歴
+             側は、引き継ぎができる起動では pushScreenEntry と
+             openEditor の navigate がどちらも積まず、今いる編集の
+             エントリとその下のプレビューのエントリをそのまま使う。
              描画は openEditor 側の navigate("editor") が行うので、
              ここでは画面表示は切り替わらない */
           state.history.push(captureCtx());
@@ -2765,6 +2793,9 @@ function closeFabMenuAndThen(cb){
    一覧で履歴が尽きてアプリが閉じてしまった。画面ごとに履歴を持つ
    この方式なら、プレビューで戻れば必ず一覧の履歴に戻る。 */
 function pushScreenEntry(){
+  /* 起動時の復元で既存エントリを引き継ぐ間は、新しいエントリを積まない
+     （今いるエントリが、その画面のエントリとして既に存在するため） */
+  if (restoreAdoptMode) return;
   try { history.pushState({myMemo:true, screen:state.screen}, ""); } catch(e){}
 }
 /* ---------- 検索窓の「戻るで文字を消す」と履歴の連携 ----------
@@ -2864,6 +2895,13 @@ var folderAfterConsume = null; /* フォルダ用履歴の消費後に実行す�
 var folderCloseSeq = 0;        /* 消費処理の世代（フォールバック判定用） */
 function pushFolderEntry(){
   if (folderEntryPushed) return;
+  if (restoreAdoptMode){
+    /* 起動時の復元で既存エントリを引き継ぐ場合：フォルダ用のエントリは
+       利用者の操作で既に下に積まれているので、新しく積まずに
+       「積んである」ことだけを記録する */
+    folderEntryPushed = true; folderEntrySeq = ++overlayEntrySeq;
+    return;
+  }
   try { history.pushState({myMemo:true, screen:"list", overlay:"folder"}, ""); folderEntryPushed = true; folderEntrySeq = ++overlayEntrySeq; }
   catch(e){ folderEntryPushed = false; folderEntrySeq = 0; }
 }
