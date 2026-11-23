@@ -5851,8 +5851,23 @@ function start(){
     banner.textContent = "保存データの確認を完了できませんでした。データは変更していません。バックアップを確保し、必要に応じて再読み込みしてください。";
   }).then(function(){
     /* 起動時のエントリを一覧（ルート）として確定する。以後の画面遷移は
-       navigate() が履歴を1件ずつ積み、戻る操作はその履歴を消費する */
-    try { history.replaceState({myMemo:true, screen:"list"}, ""); } catch(e){}
+       navigate() が履歴を1件ずつ積み、戻る操作はその履歴を消費する。
+       ただし、再読み込みでプレビュー・編集を復元する起動では、この
+       書き換えを行わない。今いるエントリは、再読み込み前に利用者の
+       タップで作られた画面用のエントリであり、復元した画面から戻る
+       ときの戻り先になる。それを起動直後（利用者の操作がない状態）に
+       replaceState で書き換えると、単独版のようなトップレベルの
+       ブラウザでは「操作なしで触られた履歴」として戻る操作のときに
+       飛ばされることがあり、復元で積んだエントリと一緒に抜けて
+       アプリが閉じてしまっていた（Muse版＝枠内では発生しない）。
+       history.state の目印はアプリのどこからも読まれていないため、
+       復元する起動で書き換えを省いても画面遷移の処理には影響しない。
+       共有で開かれたときは復元しないので、従来どおり書き換える */
+    var bootShareIncoming = false;
+    try { var bsp = new URLSearchParams(location.search); bootShareIncoming = !!(bsp.get("text") || bsp.get("url") || bsp.get("title") || bsp.get("sharepost")); } catch(e){}
+    if (!pendingResume || bootShareIncoming){
+      try { history.replaceState({myMemo:true, screen:"list"}, ""); } catch(e){}
+    }
     renderRoute();
     return Promise.all([refreshSyncStatus(), renderList(), renderDraftRecoveryPanel()]).then(function(){
       /* 前回開いていた画面（プレビュー・編集）を復元する。共有で
