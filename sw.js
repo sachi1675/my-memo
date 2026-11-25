@@ -7,7 +7,7 @@ self.addEventListener('fetch',function(e){
 if(e.request.method==='POST'){
 var u;try{u=new URL(e.request.url);}catch(err){return;}
 var scopePath='/';try{scopePath=new URL(self.registration.scope).pathname;}catch(err){}
-if(u.origin!==self.location.origin||u.pathname.indexOf(scopePath)!==0)return;
+if(u.origin!==self.location.protocol+'//'+self.location.host||u.pathname.indexOf(scopePath)!==0)return;
 e.respondWith((async function(){
 try{
 var fd=await e.request.formData();
@@ -18,5 +18,6 @@ await cache.put(shareKey(),new Response(JSON.stringify(data),{headers:{'Content-
 return Response.redirect(new URL('?sharepost=1',self.registration.scope).href,303);
 })());
 return;}
+if(e.request.mode==='navigate')return;
 e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}));
 });
