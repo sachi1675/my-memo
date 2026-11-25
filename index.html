@@ -1427,7 +1427,7 @@
          付いていない。ここで預けた本文を読み取って取り込む */
       try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
       if (window.caches){
-        var shareKey = location.origin + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
+        var shareKey = (location.protocol + "//" + location.host) + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
         caches.open("mymemo-share-v1").then(function(cache){
           return cache.match(shareKey).then(function(res){
             if (!res) return;
@@ -1557,7 +1557,7 @@
     "if(e.request.method==='POST'){",
     "var u;try{u=new URL(e.request.url);}catch(err){return;}",
     "var scopePath='/';try{scopePath=new URL(self.registration.scope).pathname;}catch(err){}",
-    "if(u.origin!==self.location.origin||u.pathname.indexOf(scopePath)!==0)return;",
+    "if(u.origin!==self.location.protocol+'//'+self.location.host||u.pathname.indexOf(scopePath)!==0)return;",
     "e.respondWith((async function(){",
     "try{",
     "var fd=await e.request.formData();",
@@ -2502,6 +2502,62 @@ function createRestoreFloor(){
   restoreFloorHash = target;
   try { location.hash = target; } catch(e){}
 }
+/* ---------- 方式1（開き直しの復元で本物のページ遷移を使う） ----------
+   土台方式（フラグメント遷移）でも実機では戻るがページの外まで一気に
+   出てしまうことが分かったため、開き直しの復元は利用者が選んだ方式1
+   に切り替える。開き直しで復元が必要なときだけ、起動した画面（この時点
+   では一覧を表示）が本物のページ遷移（location.assign による通常の
+   ナビゲーション）を1回だけ行い、遷移先の読み込みで復元する。遷移で
+   作られた履歴はスクリプトの履歴操作ではないため戻る操作で飛ばされず、
+   復元した画面で最初の戻るを押すと、遷移元の画面（一覧）へページ遷移
+   として着地する。遷移元の一覧は、控えにフォルダがあればそのフォルダ
+   表示で描いておくため、フォルダ内から開いたメモの復元でも、戻るの
+   着地先はそのフォルダの一覧になる。
+   遷移の前後を区別する印は sessionStorage に置く（同じタブ・同じ
+   セッションの中だけ有効で、アプリを閉じれば消える）。
+   ・印なし＋復元が必要＋引き継げる履歴なし → 遷移前の読み込み。
+     印を立て、控えは消費せず、一覧を表示してから遷移する。
+   ・印あり → 遷移後の読み込み。restoreHopMode で復元する。
+   ・読み込み種別が back_forward（戻るで遷移元へ着地した再読み込み）
+     → 復元せず一覧を表示し、控えと印を消す。
+   sessionStorage が使えない環境では印が読めないため、従来の土台方式
+   （createRestoreFloor）にフォールバックする */
+var restoreHopMode = false; /* この起動が方式1の遷移後の読み込みで、復元を方式1で行う間 true */
+var bootWillHop = false;    /* この起動で方式1のページ遷移を行う場合 true */
+var bootHopSource = false;  /* この画面が方式1の遷移元（戻り先）である場合 true */
+var bootFolderId = null;    /* 遷移元・着地先の一覧で表示するフォルダ（控えの戻り先） */
+var HOP_FLAG_KEY = "mmBootHop";
+function hopFlagGet(){ try { return sessionStorage.getItem(HOP_FLAG_KEY); } catch(e){ return "error"; } }
+function hopFlagSet(v){ try { sessionStorage.setItem(HOP_FLAG_KEY, v); return true; } catch(e){ return false; } }
+function hopFlagRemove(){ try { sessionStorage.removeItem(HOP_FLAG_KEY); } catch(e){} }
+/* 起動時の読み込み種別（"navigate" / "reload" / "back_forward"）。
+   戻るで遷移元へ着地した再読み込みと、通常の開き直しを区別するために使う */
+function getBootNavType(){
+  try {
+    var navEntries = (performance.getEntriesByType ? performance.getEntriesByType("navigation") : null);
+    if (navEntries && navEntries.length && navEntries[0].type) return String(navEntries[0].type);
+  } catch(e){}
+  try {
+    if (performance.navigation){
+      if (performance.navigation.type === 1) return "reload";
+      if (performance.navigation.type === 2) return "back_forward";
+    }
+  } catch(e){}
+  return "navigate";
+}
+/* 遷移先のURL：クエリを付け替えて、フラグメントだけの変更（同一文書
+   遷移）にならず、確実に通常のページ遷移になるようにする */
+function buildHopUrl(){
+  var search = location.search || "";
+  var next = /[?&]mmhop=1(&|$)/.test(search) ? "2" : "1";
+  var newSearch;
+  if (/[?&]mmhop=[12](&|$)/.test(search)){
+    newSearch = search.replace(/([?&])mmhop=[12]/, "$1mmhop=" + next);
+  } else {
+    newSearch = search + (search ? "&" : "?") + "mmhop=" + next;
+  }
+  return location.pathname + newSearch + (location.hash || "");
+}
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
   if (restoredEntryRearmArmed) return;
@@ -2522,15 +2578,59 @@ function armRestoredEntryRearm(){
   document.addEventListener("touchstart", rearm, true);
   document.addEventListener("keydown", rearm, true);
 }
+/* 方式1で復元した画面の「最初の操作で履歴を積み直す」仕掛け。
+   復元直後の画面には履歴APIで積んだ履歴が無く、最初の戻るは遷移元の
+   一覧へのページ遷移になる（それ自体は方式1の仕様どおり）。ただし
+   編集画面で変更がある場合に従来どおり保存確認ポップを出すには、
+   戻るをアプリ内で受ける必要がある。そこで、利用者が最初に画面へ
+   触れた（タップ・キー入力＝利用者の操作があった）時点で、表示中の
+   画面用の履歴を1件積む。操作の中で積むため、この履歴は戻る操作で
+   飛ばされない。積んだあとの最初の戻るは popstate として届き、土台
+   方式と同じ handleAnchorBack が受ける（編集なら保存確認ポップ、
+   プレビューなら戻り先へ一気に進む）。フォルダ一覧の復元ではフォルダ
+   用の履歴として積み、通常のフォルダ用の判定（handleFolderPop）が
+   受ける。触れる前に戻るされた場合はページ遷移で遷移元の一覧へ
+   着地し、編集内容は自動保存済みの下書きがそのまま残るため失われない */
+var hoppedGuardDisarm = null;
+function armHoppedGuard(){
+  if (hoppedGuardDisarm) return;
+  function disarm(){
+    hoppedGuardDisarm = null;
+    document.removeEventListener("pointerdown", guard, true);
+    document.removeEventListener("touchstart", guard, true);
+    document.removeEventListener("keydown", guard, true);
+  }
+  function guard(){
+    disarm();
+    if (state.screen === "editor" || state.screen === "preview"){
+      try { history.pushState({myMemo:true, screen:state.screen}, ""); anchorBackArmed = true; } catch(e){}
+    } else if (state.screen === "list" && state.currentFolderId){
+      try { history.pushState({myMemo:true, screen:"list", overlay:"folder"}, ""); folderEntryPushed = true; folderEntrySeq = ++overlayEntrySeq; } catch(e){}
+    }
+  }
+  hoppedGuardDisarm = disarm;
+  document.addEventListener("pointerdown", guard, true);
+  document.addEventListener("touchstart", guard, true);
+  document.addEventListener("keydown", guard, true);
+}
 function restoreLastView(){
   var rec = pendingResume; pendingResume = null;
   var restoredScreen = false; /* プレビュー／編集を実際に開いたか */
   var anchorUsed = false;     /* 土台方式（開き直し）で復元したか */
+  var hopUsed = false;        /* 方式1（本物のページ遷移）で復元したか */
   /* 引き継げる履歴が無い起動（開き直し）では、画面を開く前に土台を
      作り、以降の履歴積みを止める（createRestoreFloor の節参照）。
-     引き継ぎができる起動（再読み込み）では従来どおり何もしない */
+     引き継ぎができる起動（再読み込み）では従来どおり何もしない。
+     方式1の遷移後の読み込みでは、戻り先はページ遷移で既に確立して
+     いるため土台は作らず、履歴積みだけを止める */
   function prepareAnchor(){
     if (restoreAdoptMode || anchorUsed) return;
+    if (restoreHopMode){
+      restoreAnchorMode = true;
+      anchorUsed = true;
+      hopUsed = true;
+      return;
+    }
     createRestoreFloor();
     restoreAnchorMode = true;
     anchorUsed = true;
@@ -2540,11 +2640,22 @@ function restoreLastView(){
     restoreAnchorMode = false;
     resumeReady = true; saveResumeState();
     if (anchorUsed && restoredScreen){
-      /* 土台方式で復元した画面：最初の戻るは popstate ハンドラ内の
-         handleAnchorBack が土台への着地として受ける。履歴を操作ありに
-         変える仕掛け（armRestoredEntryRearm）は、土台の履歴を
-         replaceState で触ってしまうため、土台方式では使わない */
-      anchorBackArmed = true;
+      if (hopUsed){
+        /* 方式1で復元した画面：最初の戻るは、遷移で作られた戻り先への
+           ページ遷移そのものが受け止める（popstate は届かない）。
+           利用者が最初に画面へ触れた時点で復元した画面用の履歴を
+           操作ありで1件積み直し、以降の戻るは従来どおりアプリ内で
+           受けられるようにする（armHoppedGuard の節参照）。履歴を
+           操作ありに変える仕掛け（armRestoredEntryRearm）は、方式1
+           では使わない */
+        armHoppedGuard();
+      } else {
+        /* 土台方式で復元した画面：最初の戻るは popstate ハンドラ内の
+           handleAnchorBack が土台への着地として受ける。履歴を操作ありに
+           変える仕掛け（armRestoredEntryRearm）は、土台の履歴を
+           replaceState で触ってしまうため、土台方式では使わない */
+        anchorBackArmed = true;
+      }
     } else if (restoredScreen) {
       /* 復元で画面を開いた場合は、その履歴を操作ありに変える仕掛けを
          armed にしておく（上の armRestoredEntryRearm のコメント参照） */
@@ -3038,6 +3149,10 @@ function navigate(screen){
      終わり（以降はタップで積まれた履歴による通常の戻りになる）。
      復元中の navigate は done() で anchorBackArmed が立つ前に呼ばれる
      ため、ここで消しても復元の受け止めには影響しない */
+  /* 方式1の積み直し待ちが残っていれば取り消す（操作より先に遷移が
+     起きた場合。復元中の navigate は armHoppedGuard より前に呼ばれる
+     ため、待ちはまだ無く影響しない） */
+  if (hoppedGuardDisarm) hoppedGuardDisarm();
   anchorBackArmed = false;
   state.history.push(captureCtx());
   state.screen = screen;
@@ -3272,6 +3387,17 @@ function requestCloseTodoDetail(){
 function handleOptionsMenuPop(){ overlayEntryPopped(optionsMenuState); closeOptionsMenus(); }
 function handleReplacePanelPop(){ overlayEntryPopped(replacePanelState); toggleReplaceArea(false); }
 function handleReplaceSessionPop(){ overlayEntryPopped(replaceSessionState); finishReplaceSession(true); }
+/* 方式1で遷移元になった画面が bfcache から復元されたとき（復元した
+   画面で戻るを押して着地したとき）：この画面は一覧として通常どおり
+   使える状態にあるため、方式1の印を消し、控えの保存を有効化する
+   （以降に保存される控えは、今表示している一覧のものになる） */
+window.addEventListener("pageshow", function(ev){
+  if (!ev || !ev.persisted || !bootHopSource) return;
+  bootHopSource = false;
+  hopFlagRemove();
+  resumeReady = true;
+  saveResumeState();
+});
 window.addEventListener("popstate", function(){
   /* フォールバック処理済みの遅れて届いた popstate は飲み込む */
   if (Date.now() < swallowPopUntil){ swallowPopUntil = 0; return; }
@@ -6048,13 +6174,59 @@ function start(){
        （復元が終わるまで saveResumeState は上書きしない） */
     var rvRec = (data.settings || []).filter(function(s){ return s && s.key === RESUME_KEY; })[0];
     pendingResume = rvRec ? rvRec.value : null;
+    /* 方式1（開き直しの復元）の判定。引き継げる履歴が無い開き直しでは、
+       履歴APIやフラグメントで作った履歴が実機の戻る操作で飛ばされて
+       しまうため、まず本物のページ遷移を1回だけ行って戻り先を確立し、
+       遷移先の読み込みで復元する（restoreHopMode・buildHopUrl の節参照）。
+       ・遷移前の読み込み：印を立て、控えは消費せず、一覧を表示してから
+         遷移する（この関数の後段で location.assign を呼ぶ）。
+       ・遷移後の読み込み：印を見て restoreHopMode で復元する。その画面
+         での再読み込みも同じ扱いにする。
+       ・戻るで遷移元へ着地した再読み込み（back_forward）：復元せず
+         一覧を表示し、控えも印も消す。着地先の一覧には、控えの戻り先
+         フォルダがあればそのフォルダ表示を反映する。
+       再読み込みで引き継ぎができる起動と、共有での起動は従来どおりで、
+       この判定には入らない。sessionStorage が使えない環境では印が
+       読めず、従来の土台方式にフォールバックする */
+    var earlyShare = false;
+    try { var esp = new URLSearchParams(location.search); earlyShare = !!(esp.get("text") || esp.get("url") || esp.get("title") || esp.get("sharepost")); } catch(e){}
+    var bootState = null;
+    try { bootState = history.state; } catch(e){}
+    var resumeAdoptable = !!(pendingResume && bootState && bootState.myMemo && bootState.screen === pendingResume.screen &&
+      (pendingResume.screen === "preview" || pendingResume.screen === "editor" ||
+       (pendingResume.screen === "list" && bootState.overlay === "folder")));
+    var resumeNeeded = !!(pendingResume &&
+      (pendingResume.screen === "preview" || pendingResume.screen === "editor" ||
+       (pendingResume.screen === "list" && pendingResume.folderId)));
+    if (resumeNeeded && !resumeAdoptable && !earlyShare){
+      var bootNavType = getBootNavType();
+      var hopFlag = hopFlagGet();
+      if (bootNavType === "back_forward"){
+        /* 着地先の一覧に出すフォルダは、プレビュー／編集の戻り先として
+           のフォルダだけ。フォルダ一覧自体の復元（screen:"list"）では、
+           戻り先はトップなのでフォルダは反映しない */
+        bootFolderId = (pendingResume.screen === "preview" || pendingResume.screen === "editor")
+          ? (pendingResume.folderId || null) : null;
+        hopFlagRemove();
+        putSettingValue(RESUME_KEY, null).catch(function(){});
+        pendingResume = null;
+      } else if (hopFlag === "1" || hopFlag === "2"){
+        restoreHopMode = true;
+        if (hopFlag === "1") hopFlagSet("2");
+      } else if (hopFlag === null){
+        bootFolderId = (pendingResume.screen === "preview" || pendingResume.screen === "editor")
+          ? (pendingResume.folderId || null) : null;
+        if (hopFlagSet("1")) bootWillHop = true;
+      }
+    }
     /* 読み取った控えは、その場で保存側を無効化しておく（消費は一度きり）。
        復元できた画面は restoreLastView の done() が改めて記録し直すため、
        再読み込みしながら見続ける使い方には影響しない。一方、復元の途中で
        アプリが閉じたり、戻る操作で一覧へ辿り着けないまま終了したりしても、
        古い控えが残り続けて次回以降の起動のたびに同じメモが勝手に開く、
-       ということが起きないようにする */
-    if (pendingResume) putSettingValue(RESUME_KEY, null).catch(function(){});
+       ということが起きないようにする。ただし方式1の遷移前の読み込み
+       では、控えは遷移先で読むため、ここでは消費しない */
+    if (pendingResume && !bootWillHop) putSettingValue(RESUME_KEY, null).catch(function(){});
     var issues = auditData(data);
     if (issues.length){
       integrityNotice = "保存データの確認事項 " + issues.length + "件";
@@ -6091,13 +6263,19 @@ function start(){
     if (!pendingResume || bootShareIncoming){
       try { history.replaceState({myMemo:true, screen:"list"}, ""); } catch(e){}
     }
+    /* 方式1の遷移元・着地先では、戻り先のフォルダ表示がそのまま見える
+       よう、フォルダの文脈を一覧に反映してから描く（フォルダが既に
+       消えている場合は反映しない） */
+    return (bootFolderId ? resolveResumeFolderId(bootFolderId) : Promise.resolve(null)).then(function(landFid){
+    if (landFid) state.currentFolderId = landFid;
     renderRoute();
     return Promise.all([refreshSyncStatus(), renderList(), renderDraftRecoveryPanel()]).then(function(){
       /* 前回開いていた画面（プレビュー・編集）を復元する。共有で
          開かれたときは共有の取り込みを優先し、復元はしない */
       var shareIncoming = false;
       try { var sp = new URLSearchParams(location.search); shareIncoming = !!(sp.get("text") || sp.get("url") || sp.get("title") || sp.get("sharepost")); } catch(e){}
-      var restored = shareIncoming ? Promise.resolve() : restoreLastView();
+      /* 方式1の遷移前の読み込みでは復元せず、一覧を表示したまま遷移する */
+      var restored = (shareIncoming || bootWillHop) ? Promise.resolve() : restoreLastView();
       return restored.then(function(){
       if (shareIncoming){ resumeReady = true; saveResumeState(); }
       /* 共有リンク形式（?title=／?text=／?url=）で開かれた場合は、
@@ -6118,7 +6296,7 @@ function start(){
              それを読み取って取り込み画面へ入れる（読んだら消す。
              単独版ランタイム側と二重に取り込まないため） */
           try { history.replaceState({myMemo:true, screen:"list"}, "", location.pathname + location.hash); } catch(e){}
-          var postShareKey = location.origin + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
+          var postShareKey = (location.protocol + "//" + location.host) + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
           caches.open("mymemo-share-v1").then(function(cache){
             return cache.match(postShareKey).then(function(res){
               if (!res) return;
@@ -6139,7 +6317,14 @@ function start(){
         }
       } catch(e){}
       initSync();
+      if (bootWillHop){
+        /* 方式1：戻り先を確立するため、本物のページ遷移を1回だけ行う。
+           遷移先の読み込みが、印を見て復元を行う */
+        bootHopSource = true;
+        try { location.assign(buildHopUrl()); } catch(e){}
+      }
       });
+    });
     });
   });
 }
@@ -6166,7 +6351,7 @@ start().catch(function(e){
          付いていない。ここで預けた本文を読み取って取り込む */
       try { history.replaceState({ myMemo: true, screen: "list" }, "", location.pathname + location.hash); } catch(e){}
       if (window.caches){
-        var shareKey = location.origin + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
+        var shareKey = (location.protocol + "//" + location.host) + location.pathname.replace(/[^\/]*$/, "") + "__mymemo_shared__";
         caches.open("mymemo-share-v1").then(function(cache){
           return cache.match(shareKey).then(function(res){
             if (!res) return;
@@ -6296,7 +6481,7 @@ start().catch(function(e){
     "if(e.request.method==='POST'){",
     "var u;try{u=new URL(e.request.url);}catch(err){return;}",
     "var scopePath='/';try{scopePath=new URL(self.registration.scope).pathname;}catch(err){}",
-    "if(u.origin!==self.location.origin||u.pathname.indexOf(scopePath)!==0)return;",
+    "if(u.origin!==self.location.protocol+'//'+self.location.host||u.pathname.indexOf(scopePath)!==0)return;",
     "e.respondWith((async function(){",
     "try{",
     "var fd=await e.request.formData();",
