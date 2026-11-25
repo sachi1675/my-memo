@@ -1090,6 +1090,7 @@
   <span class="backup-hint">書き出しについて：このアプリの中の画面では、ダウンロードも共有もスマホに渡らず、ファイルが残りません。「バックアップを書き出す」を押すと保存用の画面が出るので、「内容をコピーする」で全文をコピーして、メモ帳などに貼って控えてください。メモを消してしまったときの戻し方：ファイルがある場合は「バックアップから復元する」を押してバックアップファイル（my-memo-backup-○○.json）を選び、確認のポップで「復元する」を押してください。コピーで控えた場合は「バックアップを貼り付けて復元する」に貼り付けても戻せます。バックアップを取った時点のメモが、そのままの名前で一覧に追加され、消したメモも戻ります。今あるメモは上書きされません。フォルダ・見出しは、同名のものがあれば今あるものをそのまま使い、無いものだけが追加されます。「復旧用データ」のファイルはここでは読み込めません。</span>
   <input id="backupFileInput" type="file" accept="application/json,.json" hidden="">
   <span id="syncStatus" class="sync-status" role="status" aria-live="polite" title="メモは端末内に保存されています。サーバーへの自動同期は接続設定後に有効になります。"></span>
+  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261125-1445／起動:reload／hop:なし／履歴:1／SW:なし</span>
 </aside>
 
 <header class="app-header">
@@ -1568,6 +1569,7 @@
     "return Response.redirect(new URL('?sharepost=1',self.registration.scope).href,303);",
     "})());",
     "return;}",
+    "if(e.request.mode==='navigate')return;",
     "e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}));",
     "});"
   ].join("\n");
@@ -2507,7 +2509,9 @@ function createRestoreFloor(){
    出てしまうことが分かったため、開き直しの復元は利用者が選んだ方式1
    に切り替える。開き直しで復元が必要なときだけ、起動した画面（この時点
    では一覧を表示）が本物のページ遷移（location.assign による通常の
-   ナビゲーション）を1回だけ行い、遷移先の読み込みで復元する。遷移で
+   ナビゲーション）を2段行い、最終段の読み込みで復元する（即座の遷移は
+   リダイレクト扱いで戻り先が飛ばされるため、読み込み完了後にずらして
+   行う。scheduleBootHop の節参照）。遷移で
    作られた履歴はスクリプトの履歴操作ではないため戻る操作で飛ばされず、
    復元した画面で最初の戻るを押すと、遷移元の画面（一覧）へページ遷移
    として着地する。遷移元の一覧は、控えにフォルダがあればそのフォルダ
@@ -2557,6 +2561,46 @@ function buildHopUrl(){
     newSearch = search + (search ? "&" : "?") + "mmhop=" + next;
   }
   return location.pathname + newSearch + (location.hash || "");
+}
+/* ビルド識別（ドロワー下部の診断表示用。ビルドごとに更新する） */
+var BUILD_ID = "20261125-1445";
+/* 方式1の遷移を実行する。起動処理の流れの中で即座に遷移すると、実機
+   ブラウザに「読み込み途中のリダイレクト」とみなされ、戻る操作のときに
+   遷移元のエントリごと飛ばされてアプリが閉じてしまうことが分かった。
+   そこで遷移は、ページの読み込みが完了し、一覧が表示されて少し落ち
+   着いてから行う（読み込み完了後の通常のページ遷移として扱わせる）。
+   あわせて遷移は2段にし（起動ページ→中継ページ→復元ページ）、戻る
+   操作で中継ページが飛ばされても、遷移元のページ（一覧）に着地でき
+   るようにする。遷移までの間に利用者が画面へ触れた場合は、遷移を
+   やめてそのタップを通常どおり処理させる（利用者の操作を横取り
+   しないため） */
+function scheduleBootHop(){
+  var done = false;
+  function cleanup(){
+    document.removeEventListener("pointerdown", onInteract, true);
+    document.removeEventListener("keydown", onInteract, true);
+    window.removeEventListener("load", arm);
+  }
+  /* 遷移までの間に利用者が画面へ触れたら、遷移をやめる（利用者の
+     操作を横取りしないため）。控えは消費していないので、タップした
+     先の操作はそのまま通常どおり動き、次回の開き直しで改めて復元を
+     試みる */
+  function onInteract(){
+    if (done) return; done = true; cleanup();
+  }
+  function go(){
+    if (done) return; done = true; cleanup();
+    /* 既に別の画面へ進んでいる場合は遷移しない */
+    if (state.screen !== "list") return;
+    try { location.assign(buildHopUrl()); } catch(e){}
+  }
+  function arm(){ setTimeout(go, 350); }
+  document.addEventListener("pointerdown", onInteract, true);
+  document.addEventListener("keydown", onInteract, true);
+  if (document.readyState === "complete") arm();
+  else window.addEventListener("load", arm);
+  /* load が来ない環境向けの保険（遅めのタイミングで1回だけ） */
+  setTimeout(go, 3000);
 }
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
@@ -6210,9 +6254,16 @@ function start(){
         hopFlagRemove();
         putSettingValue(RESUME_KEY, null).catch(function(){});
         pendingResume = null;
-      } else if (hopFlag === "1" || hopFlag === "2"){
+      } else if (hopFlag === "1"){
+        /* 遷移1段目の中継ページ：まだ復元せず、一覧を表示したまま
+           2段目の遷移を行う（scheduleBootHop の節参照）。印を進め
+           られなかった環境では、この場で復元に切り替える */
+        bootFolderId = (pendingResume.screen === "preview" || pendingResume.screen === "editor")
+          ? (pendingResume.folderId || null) : null;
+        if (hopFlagSet("2")) bootWillHop = true;
+        else restoreHopMode = true;
+      } else if (hopFlag === "2"){
         restoreHopMode = true;
-        if (hopFlag === "1") hopFlagSet("2");
       } else if (hopFlag === null){
         bootFolderId = (pendingResume.screen === "preview" || pendingResume.screen === "editor")
           ? (pendingResume.folderId || null) : null;
@@ -6263,6 +6314,18 @@ function start(){
     if (!pendingResume || bootShareIncoming){
       try { history.replaceState({myMemo:true, screen:"list"}, ""); } catch(e){}
     }
+    /* 診断表示：ドロワーの片隅に、動いているビルドと起動のされ方を
+       小さく出す（実機でどの版がどう起動したか目で確認するため。
+       記録や送信はしない、その場の表示だけ） */
+    try {
+      var bs = byId("buildStamp");
+      if (bs){
+        var hopStat = restoreHopMode ? "復元" : (bootWillHop ? "遷移待ち" : "なし");
+        var swStat = (navigator.serviceWorker && navigator.serviceWorker.controller) ? "制御中" : "なし";
+        bs.textContent = "ビルド " + BUILD_ID + "／起動:" + getBootNavType() +
+          "／hop:" + hopStat + "／履歴:" + history.length + "／SW:" + swStat;
+      }
+    } catch(e){}
     /* 方式1の遷移元・着地先では、戻り先のフォルダ表示がそのまま見える
        よう、フォルダの文脈を一覧に反映してから描く（フォルダが既に
        消えている場合は反映しない） */
@@ -6318,10 +6381,11 @@ function start(){
       } catch(e){}
       initSync();
       if (bootWillHop){
-        /* 方式1：戻り先を確立するため、本物のページ遷移を1回だけ行う。
-           遷移先の読み込みが、印を見て復元を行う */
+        /* 方式1：戻り先を確立するため、本物のページ遷移を行う。
+           即座には遷移せず、読み込み完了後にずらして行う
+           （scheduleBootHop の節参照） */
         bootHopSource = true;
-        try { location.assign(buildHopUrl()); } catch(e){}
+        scheduleBootHop();
       }
       });
     });
@@ -6492,6 +6556,7 @@ start().catch(function(e){
     "return Response.redirect(new URL('?sharepost=1',self.registration.scope).href,303);",
     "})());",
     "return;}",
+    "if(e.request.mode==='navigate')return;",
     "e.respondWith(fetch(e.request).catch(function(){return caches.match(e.request)}));",
     "});"
   ].join("\n");
