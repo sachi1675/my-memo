@@ -2478,6 +2478,30 @@ function applyResumeFolder(folderId){
    引き継げるエントリが無い起動（新規に開き直した場合など）では
    従来どおりエントリを積んで復元する */
 var restoreAdoptMode = false;
+/* 開き直し（コールドスタート）で復元するときの「土台」方式。
+   開き直しの起動では引き継げる履歴が無く、復元のために履歴API
+   （pushState）で積んだ履歴は、利用者の操作がないため実機ブラウザの
+   戻る操作で全部まとめて飛ばされ、ページの外まで一気に出てアプリが
+   閉じてしまっていた（戻った直後に履歴を補う従来の対策は、popstate
+   自体が届かないため働く余地がなかった）。
+   そこで開き直しの復元では、まずフラグメント遷移（location.hash の
+   変更）で「本物のページ内遷移」の履歴を1件作って土台にする。履歴
+   APIで作った履歴と違い、この土台は戻る操作で飛ばされず、最初の
+   戻るは必ず同じページ内の土台（または起動時の履歴）に着地して
+   popstate が届く。復元した画面は土台の上に履歴APIなしで載せ、
+   最初の戻る（＝土台への着地）を受けたら、アプリ内スタックの一番下
+   （トップ、またはフォルダ内から開いたメモならそのフォルダの一覧）
+   へ直接戻す。プレビューを経由する段階戻りは開き直しでは行わない
+   （実機ではその段階自体が成立しないため） */
+var restoreAnchorMode = false; /* 復元の間、履歴APIで積まないための印（引き継ぎ方式と同じ扱い） */
+var anchorBackArmed = false;   /* 土台方式で復元した画面で、最初の戻るを土台着地として受ける */
+var restoreFloorHash = null;   /* 作った土台のフラグメント（多重作成の防止） */
+function createRestoreFloor(){
+  if (restoreFloorHash) return;
+  var target = (location.hash === "#mm-floor") ? "#mm-floor-2" : "#mm-floor";
+  restoreFloorHash = target;
+  try { location.hash = target; } catch(e){}
+}
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
   if (restoredEntryRearmArmed) return;
@@ -2501,12 +2525,31 @@ function armRestoredEntryRearm(){
 function restoreLastView(){
   var rec = pendingResume; pendingResume = null;
   var restoredScreen = false; /* プレビュー／編集を実際に開いたか */
+  var anchorUsed = false;     /* 土台方式（開き直し）で復元したか */
+  /* 引き継げる履歴が無い起動（開き直し）では、画面を開く前に土台を
+     作り、以降の履歴積みを止める（createRestoreFloor の節参照）。
+     引き継ぎができる起動（再読み込み）では従来どおり何もしない */
+  function prepareAnchor(){
+    if (restoreAdoptMode || anchorUsed) return;
+    createRestoreFloor();
+    restoreAnchorMode = true;
+    anchorUsed = true;
+  }
   function done(){
     restoreAdoptMode = false;
+    restoreAnchorMode = false;
     resumeReady = true; saveResumeState();
-    /* 復元で画面を開いた場合は、その履歴を操作ありに変える仕掛けを
-       armed にしておく（上の armRestoredEntryRearm のコメント参照） */
-    if (restoredScreen) armRestoredEntryRearm();
+    if (anchorUsed && restoredScreen){
+      /* 土台方式で復元した画面：最初の戻るは popstate ハンドラ内の
+         handleAnchorBack が土台への着地として受ける。履歴を操作ありに
+         変える仕掛け（armRestoredEntryRearm）は、土台の履歴を
+         replaceState で触ってしまうため、土台方式では使わない */
+      anchorBackArmed = true;
+    } else if (restoredScreen) {
+      /* 復元で画面を開いた場合は、その履歴を操作ありに変える仕掛けを
+         armed にしておく（上の armRestoredEntryRearm のコメント参照） */
+      armRestoredEntryRearm();
+    }
   }
   if (!rec || typeof rec !== "object"){ done(); return Promise.resolve(); }
   /* 今いるエントリが、復元しようとする画面自身のエントリ（再読み込み
@@ -2532,6 +2575,7 @@ function restoreLastView(){
     if (!rec.folderId){ done(); return Promise.resolve(); }
     return resolveResumeFolderId(rec.folderId).then(function(fid){
       if (!fid) return;
+      prepareAnchor();
       applyResumeFolder(fid);
       state.screen = "list";
       restoredScreen = true;
@@ -2546,6 +2590,7 @@ function restoreLastView(){
          復元する（控えにフォルダが無い・既に消えている場合は従来どおり
          トップからの開き直しになる） */
       return resolveResumeFolderId(rec.folderId).then(function(fid){
+        prepareAnchor();
         applyResumeFolder(fid);
         /* 編集の復元と同じく、下の一覧分のアプリ内スタックをここで
            積んでからプレビューを開く。ブラウザ履歴側は、引き継ぎが
@@ -2575,6 +2620,7 @@ function restoreLastView(){
       if (draft && !rec.memoId){
         /* 新規メモの下書きを再開する。フォルダ内から作り始めた場合は、
            戻り先のフォルダ表示も一緒に復元する */
+        prepareAnchor();
         applyResumeFolder(resumeFolderId);
         restoredScreen = true;
         return openEditor(null, true, true, dk, true);
@@ -2589,6 +2635,7 @@ function restoreLastView(){
            フォルダ用の履歴をここで復元しておく。下のプレビュー分の
            積み上げ（captureCtx）や openEditor の navigate が、フォルダ
            入りの文脈を拾えるようにするため */
+        prepareAnchor();
         applyResumeFolder(resumeFolderId);
         if (memoExists){
           /* 通常の流れ（トップ→プレビュー→編集）と同じ積みにしておく。
@@ -2825,8 +2872,12 @@ function closeFabMenuAndThen(cb){
    この方式なら、プレビューで戻れば必ず一覧の履歴に戻る。 */
 function pushScreenEntry(){
   /* 起動時の復元で既存エントリを引き継ぐ間は、新しいエントリを積まない
-     （今いるエントリが、その画面のエントリとして既に存在するため） */
-  if (restoreAdoptMode) return;
+     （今いるエントリが、その画面のエントリとして既に存在するため）。
+     土台方式（開き直し）の復元の間も積まない。復元した画面は土台の
+     履歴の上に載っており、最初の戻りは土台への着地として受けるため、
+     履歴APIで積んだ画面分の履歴はそもそも必要ない（積んでも実機の
+     戻る操作で土台ごと飛ばされ、受け止めが成立しない） */
+  if (restoreAdoptMode || restoreAnchorMode) return;
   try { history.pushState({myMemo:true, screen:state.screen}, ""); } catch(e){}
 }
 /* ---------- 検索窓の「戻るで文字を消す」と履歴の連携 ----------
@@ -2926,10 +2977,12 @@ var folderAfterConsume = null; /* フォルダ用履歴の消費後に実行す�
 var folderCloseSeq = 0;        /* 消費処理の世代（フォールバック判定用） */
 function pushFolderEntry(){
   if (folderEntryPushed) return;
-  if (restoreAdoptMode){
+  if (restoreAdoptMode || restoreAnchorMode){
     /* 起動時の復元で既存エントリを引き継ぐ場合：フォルダ用のエントリは
        利用者の操作で既に下に積まれているので、新しく積まずに
-       「積んである」ことだけを記録する */
+       「積んである」ことだけを記録する。土台方式（開き直し）の場合も
+       同じく記録だけにする（フォルダ表示への戻りは、土台への着地を
+       受けたときにアプリ内スタックの一番下へ戻すことで実現する） */
     folderEntryPushed = true; folderEntrySeq = ++overlayEntrySeq;
     return;
   }
@@ -2981,6 +3034,11 @@ function consumeFolderEntrySilently(){
   }, 450);
 }
 function navigate(screen){
+  /* 利用者の操作による通常の遷移が起きたら、土台方式の受け止めは
+     終わり（以降はタップで積まれた履歴による通常の戻りになる）。
+     復元中の navigate は done() で anchorBackArmed が立つ前に呼ばれる
+     ため、ここで消しても復元の受け止めには影響しない */
+  anchorBackArmed = false;
   state.history.push(captureCtx());
   state.screen = screen;
   pushScreenEntry();
@@ -3039,6 +3097,64 @@ function reconcilePoppedHistory(){
     folderEntryPushed = false; folderEntrySeq = 0;
     pushFolderEntry();
   }
+}
+/* 土台方式（開き直し）で復元した画面での最初の戻るを受けたときの処理。
+   ブラウザ履歴は既に土台（または起動時の履歴）まで戻っているため、
+   画面側もアプリ内スタックの一番下（トップ、またはフォルダ内から
+   開いたメモならそのフォルダの一覧）へ一気に進める。段階戻りの途中
+   画面（プレビュー）は経由しない（実機では段階自体が成立しない）。
+   編集に未保存の変更がある場合は従来どおり確認を出し、「編集を続ける」
+   のときだけ、タップ（＝利用者の操作）の中で編集用の履歴を積み直して
+   通常の戻りに切り替える */
+function anchorJumpToBottom(){
+  var bottom = state.history.length ? state.history[0] : null;
+  state.history = [];
+  folderEntryPushed = false; folderEntrySeq = 0;
+  if (bottom) restoreCtx(bottom);
+  state.screen = "list";
+  renderRoute();
+  window.scrollTo(0,0);
+  afterRouteChange();
+}
+function handleAnchorBack(){
+  anchorBackArmed = false;
+  if (state.screen === "editor"){
+    if (editorOperationInProgress || editorOpening){
+      /* 保存などの処理中は画面を動かさず、履歴だけ積み直す */
+      pushScreenEntry();
+      return;
+    }
+    if (!isEditorDirty()){
+      /* 変更が無ければ確認なしで戻る。アプリ内スタックを空にしてから
+         破棄すると、leaveEditor の popInApp がそのまま一覧（フォルダ内
+         から開いたメモならフォルダ表示の文脈を保った一覧）へ着地する */
+      state.history = [];
+      discardEditor(true);
+      return;
+    }
+    showModal("編集中の内容があります。どうしますか？", [
+      { label:"保存して戻る", kind:"primary", value:"save" },
+      { label:"変更を破棄して戻る", kind:"danger", value:"discard" },
+      { label:"編集を続ける", kind:"secondary", value:"stay" }
+    ]).then(function(choice){
+      if (choice === "save"){ state.history = []; saveEditor(true); }
+      else if (choice === "discard"){ state.history = []; discardEditor(true); }
+      else pushScreenEntry();
+    });
+    return;
+  }
+  if (state.screen === "preview"){ anchorJumpToBottom(); return; }
+  if (state.screen === "list" && state.currentFolderId){
+    /* フォルダ一覧の復元（通常はフォルダ用の判定が先に処理するが、
+       そちらをすり抜けた場合の受け皿）：フォルダを抜けてトップへ */
+    folderEntryPushed = false; folderEntrySeq = 0;
+    state.currentFolderId = null;
+    renderList().catch(function(e){ console.error(e); });
+    renderRoute();
+    return;
+  }
+  if (state.history.length){ handlePop(); }
+  else { state.screen = "list"; renderRoute(); settleAfterPop(); }
 }
 function settleAfterPop(){
   afterRouteChange();
@@ -3326,6 +3442,11 @@ window.addEventListener("popstate", function(){
     handleOptionsMenuPop();
     return;
   }
+  /* 土台方式（開き直し）で復元した画面では、最初の戻るは土台への
+     着地として受ける（画面側も戻り先へ一気に進める）。
+     アプリ内から performBack() で戻した場合は pendingBack の判定が
+     先に処理するため、ここへ来るのは端末の戻るだけになる */
+  if (anchorBackArmed){ handleAnchorBack(); return; }
   if (state.screen === "editor"){ handleEditorPop(); return; }
   if (state.history.length){ handlePop(); }
   else { state.screen = "list"; renderRoute(); settleAfterPop(); }
