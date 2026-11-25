@@ -3008,8 +3008,41 @@ function afterRouteChange(){
 /* 戻った後の共通処理：行き先の内容を読み直し、予約済みの後処理と
    performBack() の完了通知を行う */
 var pendingBack = null, pendingAfterPop = null, backSeq = 0, swallowPopUntil = 0;
+/* 開き直し（コールドスタート）で復元した画面の戻り先を補う。
+   再読み込みでは復元前の履歴を引き継げるが、開き直しの起動では
+   引き継げる履歴が無く、起動時に操作なしで履歴を積むしかない。
+   実機のブラウザは、その「操作なしで積まれた履歴」を戻る操作で
+   一気に飛ばし、トップ（一覧）の履歴まで進んでしまうことがある。
+   その場合、画面側は1つだけ戻る（編集→プレビュー、プレビュー→
+   フォルダ内一覧）ため、ブラウザ履歴と画面がずれてしまい、次の
+   戻るで履歴が尽きてアプリが閉じてしまう（編集を開いたまま放置
+   して開き直したときに実際に発生した）。
+   そこで、戻った直後の画面に対してブラウザ履歴が既にトップまで
+   進んでいたら、表示中の画面（プレビュー／フォルダ内一覧）用の
+   履歴をその場で1件補って対応を取り直す。補った履歴が次の戻るで
+   また飛ばされても、着地先は同じトップの履歴なので popstate が
+   届き、画面は通常どおりトップへ戻れる。通常の戻る（1件ずつ消費
+   された場合）は着地した履歴が表示中の画面と一致するため何もしない。
+   performBack のフォールバック（popstate が来ずアプリ内だけで
+   戻した場合）は、ブラウザ履歴が前の画面のまま残っているため、
+   着地判定（一覧の履歴かどうか）に当てはまらず対象にならない */
+function reconcilePoppedHistory(){
+  var hs = null;
+  try { hs = history.state; } catch(e){}
+  var onRootEntry = !hs || (hs.myMemo && hs.screen === "list" && !hs.overlay);
+  if (!onRootEntry) return;
+  if (state.screen === "preview"){
+    pushScreenEntry();
+  } else if (state.screen === "list" && state.currentFolderId){
+    /* フォルダ用の履歴は飛ばされて消費済みなので、積み直せるよう
+       印をリセットしてから積む */
+    folderEntryPushed = false; folderEntrySeq = 0;
+    pushFolderEntry();
+  }
+}
 function settleAfterPop(){
   afterRouteChange();
+  reconcilePoppedHistory();
   var cb = pendingAfterPop; pendingAfterPop = null;
   if (cb) cb();
   if (pendingBack){ var p = pendingBack; pendingBack = null; p.resolve(state.screen); }
