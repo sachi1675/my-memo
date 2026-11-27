@@ -16,9 +16,9 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   [hidden]{display:none !important}
-  html{width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%}
+  html{width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;overscroll-behavior:none}
   body{font-family:sans-serif;background:var(--bg);color:var(--text);
-    height:100vh;height:100dvh;overflow:hidden;width:100%;
+    height:100vh;height:100dvh;overflow:hidden;width:100%;overscroll-behavior:none;
     display:flex;flex-direction:column;line-height:1.5;position:relative}
   button,input,textarea,select{font:inherit;color:inherit}
   button{cursor:pointer}
@@ -40,7 +40,7 @@
   #headerMoveBtn.active{background:var(--accent);border-color:var(--accent)}
 
   /* ===== 一覧 ===== */
-  .app-main{flex:1;overflow-y:auto;padding:6px;width:100%;-webkit-overflow-scrolling:touch}
+  .app-main{flex:1;overflow-y:auto;padding:6px;width:100%;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-height:0}
   .memo-list{width:100%}
   .memo-item-row{background:#fff;padding:10px 12px;margin-bottom:8px;border-radius:6px;
     box-shadow:0 1px 3px rgba(0,0,0,.1);display:flex;align-items:center;width:100%}
@@ -104,9 +104,9 @@
 
   /* ===== 全画面モーダル（プレビュー／編集／フォルダ管理で共用、v11.4の .modal） ===== */
   .modal-screen{position:fixed;top:0;left:0;width:100%;height:100%;height:100dvh;background:#fff;
-    display:flex;flex-direction:column;z-index:2000}
+    display:flex;flex-direction:column;z-index:2000;overflow:hidden;overscroll-behavior:none}
   .modal-header{padding:10px 15px;display:flex;justify-content:space-between;align-items:center;
-    border-bottom:1px solid #ddd;flex-shrink:0;gap:10px}
+    border-bottom:1px solid #ddd;flex-shrink:0;gap:10px;background:#fff;position:relative;z-index:10}
   .modal-title{font-weight:bold;font-size:16px}
   .modal-h2{font-size:18px;font-weight:bold}
   .modal-header-right{display:flex;gap:10px;align-items:center}
@@ -138,8 +138,9 @@
     cursor:pointer;background-color:#f8f9fa;border-bottom:1px solid #e0e0e0;touch-action:none;flex-shrink:0}
   .drag-handle{width:40px;height:5px;background-color:#ccc;border-radius:3px}
   .drag-handle-container:active .drag-handle{background-color:#888}
-  .preview-area{padding:15px;font-size:15px;line-height:1.65;overflow-y:auto;flex:1;
-    word-wrap:break-word;overflow-wrap:break-word;-webkit-user-select:text;user-select:text}
+  .preview-area{padding:15px;font-size:15px;line-height:1.65;overflow-y:auto;flex:1;min-height:0;
+    word-wrap:break-word;overflow-wrap:break-word;-webkit-user-select:text;user-select:text;
+    overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .preview-title{font-size:18px;font-weight:bold;margin-bottom:20px;border-left:4px solid #3a4d5c;
     padding:4px 0 4px 12px;color:#111;line-height:1.4;overflow-wrap:anywhere}
   .preview-title:empty{display:none}
@@ -181,21 +182,33 @@
     padding:6px 4px;font-size:13px;cursor:pointer;color:var(--text)}
   .replace-confirm-actions button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:bold}
   .editor-counter-header{background:#f9f9f9;padding:6px 15px;font-size:12px;color:#666;
-    border-bottom:1px solid #eee;display:flex;justify-content:flex-end;gap:15px;flex-shrink:0}
-  .edit-area{display:flex;flex-direction:column;flex:1;min-height:0}
-  .editor-title{width:100%;padding:15px 15px 5px;border:none;font-size:18px;font-weight:bold;
-    outline:none;border-bottom:1px solid #eee;flex-shrink:0;background:#fff;border-radius:0;line-height:1.4}
+    border-bottom:1px solid #eee;display:flex;justify-content:flex-end;gap:15px;flex-shrink:0;
+    position:relative;z-index:10}
+  .edit-area{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;overscroll-behavior:none}
+  /* タイトルは「メモ編集」見出しの位置（ヘッダー内）に置く。固定する段を
+     ヘッダー＋文字数カウンターの2段だけにして、キーボード表示時にも
+     本文エリアが狭くなりすぎないようにするため */
+  .editor-header{justify-content:flex-start}
+  .editor-header .btn,.editor-header .modal-header-right{flex-shrink:0}
+  .editor-title{flex:1;min-width:0;width:auto;padding:6px 2px;border:none;font-size:18px;font-weight:bold;
+    outline:none;background:transparent;border-radius:0;line-height:1.4;color:var(--text);
+    position:relative;z-index:10;text-overflow:ellipsis}
+  .editor-title::placeholder{color:#999}
+  #editorScreen .options-menu{top:60px}
   .editor-body{flex:1;width:100%;padding:15px;border:none;resize:none;font-size:15px;outline:none;
-    line-height:1.65;background:#fff;border-radius:0;min-height:0}
+    line-height:1.65;background:#fff;border-radius:0;min-height:0;overflow-y:auto;
+    overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
   .todo-edit-container{flex-shrink:0;padding:2px 15px 12px;background:#fff;display:flex;flex-direction:column}
   /* テキストメモではToDo入力欄自体を出さない（作成時に＋でテキスト／ToDoを選ぶため） */
   #editorScreen:not(.is-todo) .todo-edit-container{display:none}
   #editorScreen.is-todo .todo-edit-container{flex:1;overflow:hidden;min-height:0}
-  #editorScreen.is-todo .todo-editor-list{flex:1;max-height:none;overflow-y:auto;min-height:0}
+  #editorScreen.is-todo .todo-editor-list{flex:1;max-height:none;overflow-y:auto;min-height:0;
+    overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .todo-add-row{display:flex;gap:8px;margin-top:10px;flex-shrink:0}
   .todo-add-row input{flex:1;padding:10px;border:1px solid #ccc;border-radius:6px;min-width:0;background:#fff}
   .todo-add-row button{padding:10px 15px;border:none;background:#3a4d5c;color:#fff;border-radius:6px;flex-shrink:0}
-  .todo-editor-list{display:flex;flex-direction:column;max-height:36vh;overflow-y:auto}
+  .todo-editor-list{display:flex;flex-direction:column;max-height:36vh;overflow-y:auto;
+    overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .todo-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:15px}
   .todo-row input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;cursor:pointer}
   .todo-row-text{flex:1;cursor:pointer;min-width:0;overflow-wrap:anywhere}
@@ -232,7 +245,7 @@
     font-size:14px;cursor:pointer}
 
   /* ===== フォルダ管理 ===== */
-  .manage-body{padding:20px;flex:1;overflow-y:auto}
+  .manage-body{padding:20px;flex:1;overflow-y:auto;min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .tabs{display:flex;gap:10px;margin-bottom:15px;border-bottom:1px solid #ddd;padding-bottom:5px}
   .tab{padding:5px 10px;cursor:pointer;color:#777;background:none;border:0;font-size:15px}
   .tab.active{color:var(--accent);font-weight:bold;border-bottom:2px solid var(--accent)}
@@ -1090,7 +1103,7 @@
   <span class="backup-hint">書き出しについて：このアプリの中の画面では、ダウンロードも共有もスマホに渡らず、ファイルが残りません。「バックアップを書き出す」を押すと保存用の画面が出るので、「内容をコピーする」で全文をコピーして、メモ帳などに貼って控えてください。メモを消してしまったときの戻し方：ファイルがある場合は「バックアップから復元する」を押してバックアップファイル（my-memo-backup-○○.json）を選び、確認のポップで「復元する」を押してください。コピーで控えた場合は「バックアップを貼り付けて復元する」に貼り付けても戻せます。バックアップを取った時点のメモが、そのままの名前で一覧に追加され、消したメモも戻ります。今あるメモは上書きされません。フォルダ・見出しは、同名のものがあれば今あるものをそのまま使い、無いものだけが追加されます。「復旧用データ」のファイルはここでは読み込めません。</span>
   <input id="backupFileInput" type="file" accept="application/json,.json" hidden="">
   <span id="syncStatus" class="sync-status" role="status" aria-live="polite" title="メモは端末内に保存されています。サーバーへの自動同期は接続設定後に有効になります。"></span>
-  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261125-1810／起動:reload／復元:なし／履歴:1／SW:なし</span>
+  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261127-1144／起動:reload／復元:なし／履歴:1／SW:なし</span>
 </aside>
 
 <header class="app-header">
@@ -1173,11 +1186,11 @@
     </div>
   </section>
 
-  <!-- 編集（v11.4の全画面モーダル：戻る／メモ編集／保存＋⋮メニュー） -->
+  <!-- 編集（戻る／タイトル／保存＋⋮メニュー：見出しの位置にタイトル入力欄を置き、固定段数を減らす） -->
   <section id="editorScreen" class="modal-screen" hidden="">
-    <div class="modal-header">
+    <div class="modal-header editor-header">
       <button id="editorBackButton" class="btn" type="button">戻る</button>
-      <div class="modal-title">メモ編集</div>
+      <input id="titleInput" class="editor-title" maxlength="200" placeholder="タイトルを入力..." aria-label="タイトル">
       <div class="modal-header-right">
         <button id="saveButton" class="btn bold" type="button">保存</button>
         <button id="editorOptionsButton" class="btn options-btn" type="button" aria-label="編集の操作メニュー">⋮</button>
@@ -1212,9 +1225,8 @@
     </div>
     <div id="editorCounterHeader" class="editor-counter-header"></div>
     <div class="edit-area">
-      <input id="titleInput" class="editor-title" maxlength="200" placeholder="タイトルを入力..." aria-label="タイトル">
       <textarea id="contentInput" class="editor-body" placeholder="ここにメモを入力..." aria-label="本文"></textarea>
-      <div id="todoEditContainer" class="todo-edit-container">
+      <div id="todoEditContainer" class="todo-edit-container" style="display: none;">
         <div id="todoEditorList" class="todo-editor-list"></div>
         <p id="todoEditorNotice" class="todo-notice" role="status" aria-live="polite" hidden=""></p>
         <div class="todo-add-row">
@@ -1223,7 +1235,7 @@
         </div>
       </div>
     </div>
-    <p id="saveStatus" hidden="" aria-live="polite"></p>
+    <p id="saveStatus" hidden="" aria-live="polite">入力内容は自動保存されます（下書き）。「保存」でメモとして確定します。</p>
   </section>
 
   <!-- フォルダ管理（v11.4の全画面モーダル：構成の編集＋タブ） -->
@@ -2556,7 +2568,7 @@ function getBootNavType(){
   return "navigate";
 }
 /* ビルド識別（ドロワー下部の診断表示用。ビルドごとに更新する） */
-var BUILD_ID = "20261125-1810";
+var BUILD_ID = "20261127-1144";
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
   if (restoredEntryRearmArmed) return;
