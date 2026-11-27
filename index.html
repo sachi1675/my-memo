@@ -96,6 +96,12 @@
   .drawer-action{display:block;width:100%;text-align:left;padding:10px;margin-bottom:8px;
     background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:4px;font-size:13px}
   .sync-status{display:block;color:#8ba3b5;font-size:11px;line-height:1.5;margin-top:14px}
+  /* ドロワー最下部：ビルド表示の行の右端に小さな再読み込みボタンを
+     横並びで置く（新しい行を増やさず、文字の並びを増やさないため） */
+  .drawer-foot{display:flex;align-items:center;gap:10px;margin-top:14px}
+  .drawer-foot .sync-status{margin-top:0;flex:1;min-width:0}
+  .drawer-reload{flex-shrink:0;background:rgba(255,255,255,.12);color:#fff;border:0;
+    border-radius:4px;font-size:12px;padding:7px 12px;cursor:pointer;white-space:nowrap}
   .sync-label{display:block;color:#8ba3b5;font-size:11px;margin:8px 0 3px}
   .sync-input{display:block;width:100%;padding:9px;margin-bottom:4px;background:rgba(255,255,255,.12);
     color:#fff;border:1px solid #506778;border-radius:4px;font-size:13px}
@@ -1103,7 +1109,10 @@
   <span class="backup-hint">書き出しについて：このアプリの中の画面では、ダウンロードも共有もスマホに渡らず、ファイルが残りません。「バックアップを書き出す」を押すと保存用の画面が出るので、「内容をコピーする」で全文をコピーして、メモ帳などに貼って控えてください。メモを消してしまったときの戻し方：ファイルがある場合は「バックアップから復元する」を押してバックアップファイル（my-memo-backup-○○.json）を選び、確認のポップで「復元する」を押してください。コピーで控えた場合は「バックアップを貼り付けて復元する」に貼り付けても戻せます。バックアップを取った時点のメモが、そのままの名前で一覧に追加され、消したメモも戻ります。今あるメモは上書きされません。フォルダ・見出しは、同名のものがあれば今あるものをそのまま使い、無いものだけが追加されます。「復旧用データ」のファイルはここでは読み込めません。</span>
   <input id="backupFileInput" type="file" accept="application/json,.json" hidden="">
   <span id="syncStatus" class="sync-status" role="status" aria-live="polite" title="メモは端末内に保存されています。サーバーへの自動同期は接続設定後に有効になります。"></span>
-  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261127-1215／起動:reload／復元:なし／履歴:1／SW:なし</span>
+  <div class="drawer-foot">
+    <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261127-1224／起動:reload／復元:なし／履歴:1／SW:なし</span>
+    <button id="reloadButton" class="drawer-reload" type="button">再読み込み</button>
+  </div>
 </aside>
 
 <header class="app-header">
@@ -2568,7 +2577,7 @@ function getBootNavType(){
   return "navigate";
 }
 /* ビルド識別（ドロワー下部の診断表示用。ビルドごとに更新する） */
-var BUILD_ID = "20261127-1215";
+var BUILD_ID = "20261127-1224";
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
   if (restoredEntryRearmArmed) return;
@@ -5780,6 +5789,10 @@ function bindEvents(){
   byId("folderButton").addEventListener("click", function(){ closeFabMenuAndThen(function(){ openDrawer(); }); });
   byId("drawerOverlay").addEventListener("click", requestCloseDrawer);
   byId("drawerFolderManage").addEventListener("click", function(){ closeDrawerAndThen(function(){ navigate("folders"); renderFolders(); }); });
+  /* ドロワー最下部の「再読み込み」：引っ張って更新が使えない環境でも、
+     アプリを開き直さずに最新版へ読み込み直すためのボタン。
+     下書きは自動保存されているので、そのまま再読み込みしてよい */
+  byId("reloadButton").addEventListener("click", function(){ location.reload(); });
   /* フォルダチップ（folderSummary の中）からのドロワー閉じは、
      チップ側のハンドラが closeDrawerAndThen で行う */
   byId("newMemoButton").addEventListener("click", function(){
