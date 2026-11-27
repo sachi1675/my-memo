@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja" style="--safe-area-inset-top: 0.0px; --safe-area-inset-bottom: 24.0px; --safe-area-inset-left: 0px; --safe-area-inset-right: 0px; --app-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-top: 0.0px; --twsa-safe-area-inset-bottom: 24.0px; --twsa-safe-area-inset-left: 0px; --twsa-safe-area-inset-right: 0px;"><head><style>:root{--header-height:0px;--bottom-padding:24px}body{padding-top:var(--header-height,0)}</style><script>!function(){var r=document.getElementById('root');if(!r)return;new MutationObserver(function(m,o){if(r.children.length>0){document.body.style.paddingTop='0';o.disconnect()}}).observe(r,{childList:true})}()</script><style>html img,html video,html canvas{height:revert-layer}</style>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="color-scheme" content="light">
 <link rel="icon" href="data:,">
 <title>マイメモ</title>
@@ -18,7 +18,7 @@
   [hidden]{display:none !important}
   html{width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;overscroll-behavior:none}
   body{font-family:sans-serif;background:var(--bg);color:var(--text);
-    height:100vh;height:100dvh;overflow:hidden;width:100%;overscroll-behavior:none;
+    height:100vh;height:100dvh;height:var(--app-height,100dvh);overflow:hidden;width:100%;overscroll-behavior:none;
     display:flex;flex-direction:column;line-height:1.5;position:relative}
   button,input,textarea,select{font:inherit;color:inherit}
   button{cursor:pointer}
@@ -103,7 +103,7 @@
   .backup-hint{display:block;color:#8ba3b5;font-size:11px;line-height:1.6;margin:2px 0 10px}
 
   /* ===== 全画面モーダル（プレビュー／編集／フォルダ管理で共用、v11.4の .modal） ===== */
-  .modal-screen{position:fixed;top:0;left:0;width:100%;height:100%;height:100dvh;background:#fff;
+  .modal-screen{position:fixed;top:0;left:0;width:100%;height:100%;height:100dvh;height:var(--app-height,100dvh);background:#fff;
     display:flex;flex-direction:column;z-index:2000;overflow:hidden;overscroll-behavior:none}
   .modal-header{padding:10px 15px;display:flex;justify-content:space-between;align-items:center;
     border-bottom:1px solid #ddd;flex-shrink:0;gap:10px;background:#fff;position:relative;z-index:10}
@@ -219,7 +219,7 @@
   .todo-notice{font-size:12px;color:var(--danger);padding:4px 0;line-height:1.5}
 
   /* ToDo詳細（v11.4の下部パネル） */
-  .todo-detail-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);
+  .todo-detail-overlay{position:fixed;top:0;left:0;width:100%;height:100%;height:var(--app-height,100%);background:rgba(0,0,0,.5);
     z-index:10000;display:flex;align-items:flex-end;justify-content:center}
   .todo-detail-panel{background:#fff;width:100%;max-width:500px;border-top-left-radius:16px;
     border-top-right-radius:16px;padding:20px;max-height:80vh;overflow-y:auto}
@@ -1103,7 +1103,7 @@
   <span class="backup-hint">書き出しについて：このアプリの中の画面では、ダウンロードも共有もスマホに渡らず、ファイルが残りません。「バックアップを書き出す」を押すと保存用の画面が出るので、「内容をコピーする」で全文をコピーして、メモ帳などに貼って控えてください。メモを消してしまったときの戻し方：ファイルがある場合は「バックアップから復元する」を押してバックアップファイル（my-memo-backup-○○.json）を選び、確認のポップで「復元する」を押してください。コピーで控えた場合は「バックアップを貼り付けて復元する」に貼り付けても戻せます。バックアップを取った時点のメモが、そのままの名前で一覧に追加され、消したメモも戻ります。今あるメモは上書きされません。フォルダ・見出しは、同名のものがあれば今あるものをそのまま使い、無いものだけが追加されます。「復旧用データ」のファイルはここでは読み込めません。</span>
   <input id="backupFileInput" type="file" accept="application/json,.json" hidden="">
   <span id="syncStatus" class="sync-status" role="status" aria-live="polite" title="メモは端末内に保存されています。サーバーへの自動同期は接続設定後に有効になります。"></span>
-  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261127-1144／起動:reload／復元:なし／履歴:1／SW:なし</span>
+  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261127-1151／起動:reload／復元:なし／履歴:1／SW:なし</span>
 </aside>
 
 <header class="app-header">
@@ -1226,7 +1226,7 @@
     <div id="editorCounterHeader" class="editor-counter-header"></div>
     <div class="edit-area">
       <textarea id="contentInput" class="editor-body" placeholder="ここにメモを入力..." aria-label="本文"></textarea>
-      <div id="todoEditContainer" class="todo-edit-container" style="display: none;">
+      <div id="todoEditContainer" class="todo-edit-container">
         <div id="todoEditorList" class="todo-editor-list"></div>
         <p id="todoEditorNotice" class="todo-notice" role="status" aria-live="polite" hidden=""></p>
         <div class="todo-add-row">
@@ -1235,7 +1235,7 @@
         </div>
       </div>
     </div>
-    <p id="saveStatus" hidden="" aria-live="polite">入力内容は自動保存されます（下書き）。「保存」でメモとして確定します。</p>
+    <p id="saveStatus" hidden="" aria-live="polite"></p>
   </section>
 
   <!-- フォルダ管理（v11.4の全画面モーダル：構成の編集＋タブ） -->
@@ -2568,7 +2568,7 @@ function getBootNavType(){
   return "navigate";
 }
 /* ビルド識別（ドロワー下部の診断表示用。ビルドごとに更新する） */
-var BUILD_ID = "20261127-1144";
+var BUILD_ID = "20261127-1151";
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
   if (restoredEntryRearmArmed) return;
@@ -4852,6 +4852,9 @@ function requestCloseStandaloneSheet(){
 }
 function buildStandaloneHTML(){
   var root = document.documentElement.cloneNode(true);
+  /* キーボード追従用に付けた、その時点の見える高さ（--app-height）は
+     一時的な表示状態なので、書き出すファイルには残さない */
+  root.style.removeProperty("--app-height");
   /* 単独版から作り直した場合に、前回の単独版専用の差し込みが重ならないように取り除く */
   var stale = root.querySelectorAll("#standaloneRuntimeScript,#standaloneMarker,#standaloneManifestLink,#standaloneAppleIcon,#standaloneFavicon,#standaloneThemeColor");
   for (var i = 0; i < stale.length; i++) stale[i].remove();
@@ -6141,6 +6144,30 @@ function bindEvents(){
   window.addEventListener("focus", function(){ refreshSyncStatus(); if (state.screen === "list") renderDraftRecoveryPanel(); });
 }
 
+/* ---------- キーボード表示時の高さ追従 ----------
+   編集画面は 100dvh で組み立てているが、dvh はソフトウェアキーボードで
+   縮まないブラウザがある（Operaなど、キーボードが画面に重なって出る方式）。
+   その場合、本文エリアの下端がキーボードの裏に残ったままになり、末尾まで
+   スクロールしても本文の下の方がキーボードの上に出てこない。
+   そこで「実際に見えている範囲」の高さ（visualViewport）を CSS変数
+   --app-height に反映し、body と全画面レイヤーの高さに使う。キーボードを
+   閉じれば高さは元の大きさに戻る。 */
+function initAppHeightSync(){
+  var vv = window.visualViewport; if (!vv) return;
+  var rafId = 0;
+  function apply(){
+    rafId = 0;
+    if (vv.scale && Math.abs(vv.scale - 1) > 0.01) return; /* 拡大表示中はレイアウトを変えない */
+    var h = Math.round(vv.height);
+    if (h > 0) document.documentElement.style.setProperty("--app-height", h + "px");
+  }
+  function schedule(){ if (!rafId) rafId = requestAnimationFrame(apply); }
+  vv.addEventListener("resize", schedule);
+  vv.addEventListener("scroll", schedule);
+  window.addEventListener("orientationchange", schedule);
+  apply();
+}
+
 /* ---------- 起動 ---------- */
 /* メモ初期化：初回・空・読み込み失敗でも一覧が壊れないよう、元データを必ず配列で用意する */
 function initializeMemoData(){
@@ -6156,6 +6183,7 @@ function initializeMemoData(){
   });
 }
 function start(){
+  initAppHeightSync();
   bindEvents();
   return initializeMemoData().then(function(data){
     /* 再読み込みで前回の画面へ戻るための控えを取り出しておく
