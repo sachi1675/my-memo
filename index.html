@@ -138,16 +138,16 @@
     cursor:pointer;background-color:#f8f9fa;border-bottom:1px solid #e0e0e0;touch-action:none;flex-shrink:0}
   .drag-handle{width:40px;height:5px;background-color:#ccc;border-radius:3px}
   .drag-handle-container:active .drag-handle{background-color:#888}
-  .preview-area{padding:15px;font-size:15px;line-height:1.65;overflow-y:auto;flex:1;min-height:0;
+  .preview-area{padding:15px;font-size:15px;line-height:1.3;overflow-y:auto;flex:1;min-height:0;
     word-wrap:break-word;overflow-wrap:break-word;-webkit-user-select:text;user-select:text;
     overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .preview-title{font-size:18px;font-weight:bold;margin-bottom:20px;border-left:4px solid #3a4d5c;
     padding:4px 0 4px 12px;color:#111;line-height:1.4;overflow-wrap:anywhere}
   .preview-title:empty{display:none}
-  .memo-content{font-size:15px;line-height:1.65;color:#333;white-space:pre-wrap;overflow-wrap:anywhere}
+  .memo-content{font-size:15px;line-height:1.3;color:#333;white-space:pre-wrap;overflow-wrap:anywhere}
   .preview-area mark{background:#ffd54f;color:#000;border-radius:2px;padding:0 2px}
   .preview-todo{margin-top:20px;border-top:1px solid #eee;padding-top:6px}
-  .preview-todo-item{padding:6px 0;border-bottom:1px solid #f0f0f0;overflow-wrap:anywhere;font-size:15px}
+  .preview-todo-item{padding:6px 0;border-bottom:1px solid #f0f0f0;overflow-wrap:anywhere;font-size:15px;line-height:1.3}
   .preview-todo-main{display:flex;align-items:flex-start;gap:8px}
   .preview-todo-main input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;margin-top:3px;cursor:pointer}
   .preview-todo-main input[type="checkbox"]:disabled{cursor:wait}
@@ -196,7 +196,7 @@
   .editor-title::placeholder{color:#999}
   #editorScreen .options-menu{top:60px}
   .editor-body{flex:1;width:100%;padding:15px;border:none;resize:none;font-size:15px;outline:none;
-    line-height:1.65;background:#fff;border-radius:0;min-height:0;overflow-y:auto;
+    line-height:1.3;background:#fff;border-radius:0;min-height:0;overflow-y:auto;
     overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
   .todo-edit-container{flex-shrink:0;padding:2px 15px 12px;background:#fff;display:flex;flex-direction:column}
   /* テキストメモではToDo入力欄自体を出さない（作成時に＋でテキスト／ToDoを選ぶため） */
@@ -209,7 +209,7 @@
   .todo-add-row button{padding:10px 15px;border:none;background:#3a4d5c;color:#fff;border-radius:6px;flex-shrink:0}
   .todo-editor-list{display:flex;flex-direction:column;max-height:36vh;overflow-y:auto;
     overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-  .todo-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:15px}
+  .todo-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:15px;line-height:1.3}
   .todo-row input[type="checkbox"]{width:18px;height:18px;flex-shrink:0;cursor:pointer}
   .todo-row-text{flex:1;cursor:pointer;min-width:0;overflow-wrap:anywhere}
   .todo-row.is-completed .todo-row-text{text-decoration:line-through;color:#999}
@@ -1103,7 +1103,7 @@
   <span class="backup-hint">書き出しについて：このアプリの中の画面では、ダウンロードも共有もスマホに渡らず、ファイルが残りません。「バックアップを書き出す」を押すと保存用の画面が出るので、「内容をコピーする」で全文をコピーして、メモ帳などに貼って控えてください。メモを消してしまったときの戻し方：ファイルがある場合は「バックアップから復元する」を押してバックアップファイル（my-memo-backup-○○.json）を選び、確認のポップで「復元する」を押してください。コピーで控えた場合は「バックアップを貼り付けて復元する」に貼り付けても戻せます。バックアップを取った時点のメモが、そのままの名前で一覧に追加され、消したメモも戻ります。今あるメモは上書きされません。フォルダ・見出しは、同名のものがあれば今あるものをそのまま使い、無いものだけが追加されます。「復旧用データ」のファイルはここでは読み込めません。</span>
   <input id="backupFileInput" type="file" accept="application/json,.json" hidden="">
   <span id="syncStatus" class="sync-status" role="status" aria-live="polite" title="メモは端末内に保存されています。サーバーへの自動同期は接続設定後に有効になります。"></span>
-  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261127-1151／起動:reload／復元:なし／履歴:1／SW:なし</span>
+  <span id="buildStamp" class="sync-status" aria-label="ビルドと起動の診断表示">ビルド 20261127-1215／起動:reload／復元:なし／履歴:1／SW:なし</span>
 </aside>
 
 <header class="app-header">
@@ -2568,7 +2568,7 @@ function getBootNavType(){
   return "navigate";
 }
 /* ビルド識別（ドロワー下部の診断表示用。ビルドごとに更新する） */
-var BUILD_ID = "20261127-1151";
+var BUILD_ID = "20261127-1215";
 var restoredEntryRearmArmed = false;
 function armRestoredEntryRearm(){
   if (restoredEntryRearmArmed) return;
